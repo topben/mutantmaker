@@ -66,7 +66,20 @@ animepfp-fusion-deno/
 
 ### API Key
 
-The app stores your Gemini API key in localStorage. Click the ⚙️ settings icon to configure it.
+You can configure your Gemini API key in two ways:
+
+1. **Environment Variable** (Recommended for production):
+   ```bash
+   export MUTANT_GEMINI_API_KEY="your-api-key-here"
+   deno task dev
+   ```
+
+2. **Browser Storage**: Click the ⚙️ settings icon in the app to configure it. The key is stored in localStorage.
+
+The app checks for the API key in this order:
+1. `MUTANT_GEMINI_API_KEY` environment variable (server-side)
+2. `window.MUTANT_GEMINI_API_KEY` (browser global)
+3. localStorage (browser storage)
 
 ### Port
 

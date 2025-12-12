@@ -43,10 +43,10 @@ const App: React.FC = () => {
 
   // Load API key from localStorage on mount
   useEffect(() => {
-    const savedKey = localStorage.getItem("GEMINI_API_KEY");
+    const savedKey = localStorage.getItem("MUTANT_GEMINI_API_KEY");
     if (savedKey) {
       setApiKey(savedKey);
-      (window as any).GEMINI_API_KEY = savedKey;
+      (window as any).MUTANT_GEMINI_API_KEY = savedKey;
     }
   }, []);
 
@@ -62,8 +62,8 @@ const App: React.FC = () => {
   }, [status]);
 
   const handleSaveApiKey = () => {
-    localStorage.setItem("GEMINI_API_KEY", apiKey);
-    (window as any).GEMINI_API_KEY = apiKey;
+    localStorage.setItem("MUTANT_GEMINI_API_KEY", apiKey);
+    (window as any).MUTANT_GEMINI_API_KEY = apiKey;
     setShowApiKeyModal(false);
   };
 
@@ -71,7 +71,7 @@ const App: React.FC = () => {
     if (!subjectImage || !styleImage) return;
 
     // Check for API key
-    if (!localStorage.getItem("GEMINI_API_KEY") && !(window as any).GEMINI_API_KEY) {
+    if (!localStorage.getItem("MUTANT_GEMINI_API_KEY") && !(window as any).MUTANT_GEMINI_API_KEY) {
       setShowApiKeyModal(true);
       return;
     }
