@@ -3,7 +3,7 @@
  * Uses Deno.env to access the API key directly
  */
 
-import { GoogleGenAI } from "https://esm.sh/@google/genai@0.21.0";
+import { GoogleGenAI } from "@google/genai";
 
 export type FusionMode = "style" | "balanced" | "cosplay";
 
