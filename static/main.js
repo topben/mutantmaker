@@ -27,10 +27,10 @@ const GenerationStatus = {
 
 // ============ Gemini Service ============
 const getApiKey = () => {
-  if (typeof window !== "undefined" && window.GEMINI_API_KEY) {
-    return window.GEMINI_API_KEY;
+  if (typeof window !== "undefined" && window.MUTANT_GEMINI_API_KEY) {
+    return window.MUTANT_GEMINI_API_KEY;
   }
-  const key = localStorage.getItem("GEMINI_API_KEY");
+  const key = localStorage.getItem("MUTANT_GEMINI_API_KEY");
   if (key) return key;
   throw new Error("API Key not set. Please configure your Gemini API key.");
 };
@@ -376,10 +376,10 @@ const App = () => {
   const [apiKey, setApiKey] = useState("");
 
   useEffect(() => {
-    const savedKey = localStorage.getItem("GEMINI_API_KEY");
+    const savedKey = localStorage.getItem("MUTANT_GEMINI_API_KEY");
     if (savedKey) {
       setApiKey(savedKey);
-      window.GEMINI_API_KEY = savedKey;
+      window.MUTANT_GEMINI_API_KEY = savedKey;
     }
   }, []);
 
@@ -394,14 +394,14 @@ const App = () => {
   }, [status]);
 
   const handleSaveApiKey = () => {
-    localStorage.setItem("GEMINI_API_KEY", apiKey);
-    window.GEMINI_API_KEY = apiKey;
+    localStorage.setItem("MUTANT_GEMINI_API_KEY", apiKey);
+    window.MUTANT_GEMINI_API_KEY = apiKey;
     setShowApiKeyModal(false);
   };
 
   const handleGenerate = useCallback(async () => {
     if (!subjectImage || !styleImage) return;
-    if (!localStorage.getItem("GEMINI_API_KEY") && !window.GEMINI_API_KEY) {
+    if (!localStorage.getItem("MUTANT_GEMINI_API_KEY") && !window.MUTANT_GEMINI_API_KEY) {
       setShowApiKeyModal(true);
       return;
     }

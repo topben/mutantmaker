@@ -3,18 +3,26 @@ import { GoogleGenAI } from "@google/genai";
 // Get API key from window (set via env or config)
 declare global {
   interface Window {
-    GEMINI_API_KEY?: string;
+    MUTANT_GEMINI_API_KEY?: string;
   }
 }
 
 const getApiKey = (): string => {
-  // Check window global first (for browser)
-  if (typeof window !== "undefined" && window.GEMINI_API_KEY) {
-    return window.GEMINI_API_KEY;
+  // Check Deno.env first (for server-side)
+  if (typeof Deno !== "undefined" && Deno.env) {
+    const envKey = Deno.env.get("MUTANT_GEMINI_API_KEY");
+    if (envKey) return envKey;
   }
-  // Fallback: prompt user or throw
-  const key = localStorage.getItem("GEMINI_API_KEY");
+
+  // Check window global (for browser)
+  if (typeof window !== "undefined" && window.MUTANT_GEMINI_API_KEY) {
+    return window.MUTANT_GEMINI_API_KEY;
+  }
+
+  // Fallback to localStorage
+  const key = localStorage.getItem("MUTANT_GEMINI_API_KEY");
   if (key) return key;
+
   throw new Error("API Key not set. Please configure your Gemini API key.");
 };
 

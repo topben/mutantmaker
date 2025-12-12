@@ -29,6 +29,23 @@ async function serveStaticFile(path: string): Promise<Response> {
   try {
     const file = await Deno.readFile(`./static${path}`);
     const mimeType = getMimeType(path);
+
+    // Inject API key from environment for index.html
+    if (path === "/index.html") {
+      const apiKey = Deno.env.get("MUTANT_GEMINI_API_KEY");
+      let html = new TextDecoder().decode(file);
+
+      if (apiKey) {
+        // Inject API key into window object before other scripts load
+        const script = `<script>window.MUTANT_GEMINI_API_KEY = "${apiKey}";</script>`;
+        html = html.replace("<head>", `<head>${script}`);
+      }
+
+      return new Response(html, {
+        headers: { "Content-Type": mimeType },
+      });
+    }
+
     return new Response(file, {
       headers: { "Content-Type": mimeType },
     });
