@@ -1,7 +1,9 @@
 /**
  * Deno HTTP Server for Anime PFP Fusion
- * Serves static files and handles API proxying for Gemini
+ * Serves static files and handles API requests
  */
+
+import { generateAnimePFP } from "./services/geminiService.ts";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html",
@@ -29,23 +31,6 @@ async function serveStaticFile(path: string): Promise<Response> {
   try {
     const file = await Deno.readFile(`./static${path}`);
     const mimeType = getMimeType(path);
-
-    // Inject API key from environment for index.html
-    if (path === "/index.html") {
-      const apiKey = Deno.env.get("MUTANT_GEMINI_API_KEY");
-      let html = new TextDecoder().decode(file);
-
-      if (apiKey) {
-        // Inject API key into window object before other scripts load
-        const script = `<script>window.MUTANT_GEMINI_API_KEY = "${apiKey}";</script>`;
-        html = html.replace("<head>", `<head>${script}`);
-      }
-
-      return new Response(html, {
-        headers: { "Content-Type": mimeType },
-      });
-    }
-
     return new Response(file, {
       headers: { "Content-Type": mimeType },
     });
@@ -56,15 +41,59 @@ async function serveStaticFile(path: string): Promise<Response> {
 
 async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  let path = url.pathname;
+  const path = url.pathname;
 
-  // Serve index.html for root
-  if (path === "/") {
-    path = "/index.html";
+  // Handle API endpoint for image generation
+  if (path === "/api/generate" && req.method === "POST") {
+    try {
+      const body = await req.json();
+      const resultImage = await generateAnimePFP(body);
+
+      return new Response(
+        JSON.stringify({ success: true, image: resultImage }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("API Error:", error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: error.message || "Failed to generate image",
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    }
   }
 
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
+  }
+
+  // Serve index.html for root
+  let servePath = path === "/" ? "/index.html" : path;
+
   // Handle static files
-  return await serveStaticFile(path);
+  return await serveStaticFile(servePath);
 }
 
 const port = parseInt(Deno.env.get("PORT") || "8000");

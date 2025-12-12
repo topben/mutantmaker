@@ -49,8 +49,10 @@ A fun web app that fuses your photos with anime characters using Google Gemini A
 ```
 animepfp-fusion-deno/
 ├── deno.json          # Deno configuration & tasks
-├── server.ts          # HTTP server (serves static files)
+├── server.ts          # HTTP server (serves static files + API endpoint)
 ├── build.ts           # Optional build script for bundling
+├── services/
+│   └── geminiService.ts  # Server-side Gemini API logic (uses Deno.env)
 ├── static/
 │   ├── index.html     # Main HTML with import maps
 │   ├── main.js        # Bundled React app
@@ -61,7 +63,7 @@ animepfp-fusion-deno/
 │   │   ├── Hero.tsx
 │   │   └── ImageUploader.tsx
 │   └── services/
-│       └── geminiService.ts
+│       └── geminiService.ts  # Client-side service (calls server API)
 └── README.md
 ```
 
@@ -69,13 +71,15 @@ animepfp-fusion-deno/
 
 ### API Key (Required)
 
-The Gemini API key must be set as an environment variable before starting the server:
+The Gemini API key must be set as an environment variable before starting the server. The API key is **only used server-side** and is never exposed to the browser for security.
 
 ```bash
 export MUTANT_GEMINI_API_KEY="your-api-key-here"
 ```
 
 **Get your API key**: Visit [Google AI Studio](https://aistudio.google.com/) to create a free API key.
+
+**Architecture**: The app uses a server-side API endpoint (`/api/generate`) that calls the Gemini API with `Deno.env.get("MUTANT_GEMINI_API_KEY")`. The browser never sees the API key.
 
 **For different shells**:
 - **Bash/Zsh**: Add to `~/.bashrc` or `~/.zshrc`:

@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { GoogleGenAI } from "@google/genai";
 import {
   Download,
   RefreshCw,
@@ -25,15 +24,6 @@ const GenerationStatus = {
 };
 
 // ============ Gemini Service ============
-const getApiKey = () => {
-  if (typeof window !== "undefined" && window.MUTANT_GEMINI_API_KEY) {
-    return window.MUTANT_GEMINI_API_KEY;
-  }
-  throw new Error(
-    "API Key not set. Please set the MUTANT_GEMINI_API_KEY environment variable."
-  );
-};
-
 const convertImageToJpeg = (base64Str) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -72,96 +62,44 @@ const generateAnimePFP = async (
   fusionMode = "balanced"
 ) => {
   try {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
-
+    // Convert images to JPEG format
     const [subject, style] = await Promise.all([
       convertImageToJpeg(subjectBase64),
       convertImageToJpeg(styleBase64),
     ]);
 
-    let modeInstruction = "";
-    switch (fusionMode) {
-      case "style":
-        modeInstruction = `MODE: STYLE TRANSFER ONLY.
-          - KEEP the Subject's original hair style, clothing, and pose exactly as they are.
-          - ONLY change the rendering style (lines, shading, colors) to match the Style Reference.
-          - Do NOT transfer specific character features like hair shape or costume from the anime image.`;
-        break;
-      case "cosplay":
-        modeInstruction = `MODE: COSPLAY FUSION.
-          - The goal is to make the Subject look like they are cosplaying the Anime Character.
-          - TRANSFER the Anime Character's HAIR STYLE, CLOTHING, and ACCESSORIES to the Subject.
-          - KEEP the Subject's facial structure (eyes, nose, mouth shape) so they are identifiable.
-          - This must be a perfect hybrid: Subject's Face + Anime Character's Design.`;
-        break;
-      default:
-        modeInstruction = `MODE: BALANCED FUSION.
-          - Maintain the Subject's facial identity strongly.
-          - ADAPT the Subject's hair color and texture to match the Anime Character.
-          - Incorporate subtle key elements from the Anime Character (e.g. eye color, facial markings) if they are distinctive.
-          - The result should feel like the Subject drawn by the artist of the Style Reference.`;
-        break;
-    }
+    // Prepare request data
+    const requestData = {
+      subjectBase64: `data:image/jpeg;base64,${subject.data}`,
+      styleBase64: `data:image/jpeg;base64,${style.data}`,
+      userPrompt,
+      returnComparison,
+      fusionMode,
+    };
 
-    let layoutInstruction = returnComparison
-      ? `TASK: Create a SPLIT-SCREEN comparison image.
-        - LEFT SIDE: The original Subject's face.
-        - RIGHT SIDE: The generated Anime Fusion result.
-        - The transition should be seamless.`
-      : `TASK: Create a single, centered Anime Profile Picture (PFP).
-        - Focus on a clean, high-quality headshot.`;
-
-    const basePrompt = `You are a master digital artist specializing in Character Fusion and Style Transfer.
-      
-      GOAL: Create a fusion of "Subject" (Image 1) and "Style Reference" (Image 2).
-      
-      ${modeInstruction}
-      
-      ${layoutInstruction}
-      
-      GENERAL RULES:
-      1. Identity Preservation: The face shape and key features must remain recognizable as the Subject.
-      2. Art Style: Strictly apply the shading, line weight, and palette of the Style Reference.
-      3. High Quality: Ensure the output is crisp, clean, and suitable for a profile picture.
-      
-      Additional User Request: ${userPrompt}`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-05-20",
-      contents: {
-        parts: [
-          { text: basePrompt },
-          { inlineData: { mimeType: subject.mimeType, data: subject.data } },
-          { inlineData: { mimeType: style.mimeType, data: style.data } },
-        ],
+    // Call server API endpoint
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify(requestData),
     });
 
-    const candidates = response.candidates;
-    if (!candidates || candidates.length === 0) {
-      throw new Error("No candidates returned from Gemini.");
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to generate image");
     }
 
-    const parts = candidates[0].content?.parts;
-    if (!parts) {
-      throw new Error("No content parts returned.");
+    const data = await response.json();
+
+    if (!data.success || !data.image) {
+      throw new Error("Invalid response from server");
     }
 
-    const imagePart = parts.find((part) => part.inlineData);
-    if (imagePart?.inlineData?.data) {
-      return `data:image/png;base64,${imagePart.inlineData.data}`;
-    }
-
-    const textPart = parts.find((part) => part.text);
-    if (textPart?.text) {
-      console.warn("Model returned text:", textPart.text);
-      throw new Error("The model declined to generate the image. Please try different source images.");
-    }
-
-    throw new Error("No valid image data found in response.");
+    return data.image;
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("Image generation error:", error);
     throw error;
   }
 };
