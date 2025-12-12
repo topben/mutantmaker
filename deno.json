@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "exports": "./server.ts",
   "tasks": {
-    "dev": "deno run --allow-net --allow-read --allow-env --watch server.ts",
-    "start": "deno run --allow-net --allow-read --allow-env server.ts"
+    "dev": "deno run --allow-net --allow-read --allow-env --env-file --watch server.ts",
+    "start": "deno run --allow-net --allow-read --allow-env --env-file server.ts"
   },
   "compilerOptions": {
     "lib": ["deno.window", "dom", "dom.iterable", "esnext"],
