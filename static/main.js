@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { GoogleGenAI } from "@google/genai";
 import {
   Download,
   RefreshCw,
@@ -12,7 +11,6 @@ import {
   Shirt,
   Zap,
   Crown,
-  Settings,
   X,
   UploadCloud,
 } from "lucide-react";
@@ -26,15 +24,6 @@ const GenerationStatus = {
 };
 
 // ============ Gemini Service ============
-const getApiKey = () => {
-  if (typeof window !== "undefined" && window.MUTANT_GEMINI_API_KEY) {
-    return window.MUTANT_GEMINI_API_KEY;
-  }
-  const key = localStorage.getItem("MUTANT_GEMINI_API_KEY");
-  if (key) return key;
-  throw new Error("API Key not set. Please configure your Gemini API key.");
-};
-
 const convertImageToJpeg = (base64Str) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -73,96 +62,44 @@ const generateAnimePFP = async (
   fusionMode = "balanced"
 ) => {
   try {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
-
+    // Convert images to JPEG format
     const [subject, style] = await Promise.all([
       convertImageToJpeg(subjectBase64),
       convertImageToJpeg(styleBase64),
     ]);
 
-    let modeInstruction = "";
-    switch (fusionMode) {
-      case "style":
-        modeInstruction = `MODE: STYLE TRANSFER ONLY.
-          - KEEP the Subject's original hair style, clothing, and pose exactly as they are.
-          - ONLY change the rendering style (lines, shading, colors) to match the Style Reference.
-          - Do NOT transfer specific character features like hair shape or costume from the anime image.`;
-        break;
-      case "cosplay":
-        modeInstruction = `MODE: COSPLAY FUSION.
-          - The goal is to make the Subject look like they are cosplaying the Anime Character.
-          - TRANSFER the Anime Character's HAIR STYLE, CLOTHING, and ACCESSORIES to the Subject.
-          - KEEP the Subject's facial structure (eyes, nose, mouth shape) so they are identifiable.
-          - This must be a perfect hybrid: Subject's Face + Anime Character's Design.`;
-        break;
-      default:
-        modeInstruction = `MODE: BALANCED FUSION.
-          - Maintain the Subject's facial identity strongly.
-          - ADAPT the Subject's hair color and texture to match the Anime Character.
-          - Incorporate subtle key elements from the Anime Character (e.g. eye color, facial markings) if they are distinctive.
-          - The result should feel like the Subject drawn by the artist of the Style Reference.`;
-        break;
-    }
+    // Prepare request data
+    const requestData = {
+      subjectBase64: `data:image/jpeg;base64,${subject.data}`,
+      styleBase64: `data:image/jpeg;base64,${style.data}`,
+      userPrompt,
+      returnComparison,
+      fusionMode,
+    };
 
-    let layoutInstruction = returnComparison
-      ? `TASK: Create a SPLIT-SCREEN comparison image.
-        - LEFT SIDE: The original Subject's face.
-        - RIGHT SIDE: The generated Anime Fusion result.
-        - The transition should be seamless.`
-      : `TASK: Create a single, centered Anime Profile Picture (PFP).
-        - Focus on a clean, high-quality headshot.`;
-
-    const basePrompt = `You are a master digital artist specializing in Character Fusion and Style Transfer.
-      
-      GOAL: Create a fusion of "Subject" (Image 1) and "Style Reference" (Image 2).
-      
-      ${modeInstruction}
-      
-      ${layoutInstruction}
-      
-      GENERAL RULES:
-      1. Identity Preservation: The face shape and key features must remain recognizable as the Subject.
-      2. Art Style: Strictly apply the shading, line weight, and palette of the Style Reference.
-      3. High Quality: Ensure the output is crisp, clean, and suitable for a profile picture.
-      
-      Additional User Request: ${userPrompt}`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-05-20",
-      contents: {
-        parts: [
-          { text: basePrompt },
-          { inlineData: { mimeType: subject.mimeType, data: subject.data } },
-          { inlineData: { mimeType: style.mimeType, data: style.data } },
-        ],
+    // Call server API endpoint
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify(requestData),
     });
 
-    const candidates = response.candidates;
-    if (!candidates || candidates.length === 0) {
-      throw new Error("No candidates returned from Gemini.");
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to generate image");
     }
 
-    const parts = candidates[0].content?.parts;
-    if (!parts) {
-      throw new Error("No content parts returned.");
+    const data = await response.json();
+
+    if (!data.success || !data.image) {
+      throw new Error("Invalid response from server");
     }
 
-    const imagePart = parts.find((part) => part.inlineData);
-    if (imagePart?.inlineData?.data) {
-      return `data:image/png;base64,${imagePart.inlineData.data}`;
-    }
-
-    const textPart = parts.find((part) => part.text);
-    if (textPart?.text) {
-      console.warn("Model returned text:", textPart.text);
-      throw new Error("The model declined to generate the image. Please try different source images.");
-    }
-
-    throw new Error("No valid image data found in response.");
+    return data.image;
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("Image generation error:", error);
     throw error;
   }
 };
@@ -372,16 +309,6 @@ const App = () => {
   const [resultImage, setResultImage] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-
-  useEffect(() => {
-    const savedKey = localStorage.getItem("MUTANT_GEMINI_API_KEY");
-    if (savedKey) {
-      setApiKey(savedKey);
-      window.MUTANT_GEMINI_API_KEY = savedKey;
-    }
-  }, []);
 
   useEffect(() => {
     let interval;
@@ -393,18 +320,8 @@ const App = () => {
     return () => clearInterval(interval);
   }, [status]);
 
-  const handleSaveApiKey = () => {
-    localStorage.setItem("MUTANT_GEMINI_API_KEY", apiKey);
-    window.MUTANT_GEMINI_API_KEY = apiKey;
-    setShowApiKeyModal(false);
-  };
-
   const handleGenerate = useCallback(async () => {
     if (!subjectImage || !styleImage) return;
-    if (!localStorage.getItem("MUTANT_GEMINI_API_KEY") && !window.MUTANT_GEMINI_API_KEY) {
-      setShowApiKeyModal(true);
-      return;
-    }
 
     setStatus(GenerationStatus.LOADING);
     setErrorMsg(null);
@@ -458,75 +375,10 @@ const App = () => {
       },
     }),
 
-    // API Key Modal
-    showApiKeyModal &&
-      React.createElement(
-        "div",
-        { className: "fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" },
-        React.createElement(
-          "div",
-          {
-            className:
-              "bg-[#1a1b26] border-4 border-black shadow-[8px_8px_0px_0px_#4c1d95] p-8 max-w-md w-full",
-          },
-          React.createElement(
-            "h2",
-            { className: "text-3xl font-['Bangers'] text-lime-400 mb-4" },
-            "🔑 API KEY REQUIRED"
-          ),
-          React.createElement(
-            "p",
-            { className: "text-slate-300 mb-4 font-['Space_Grotesk']" },
-            "Enter your Google Gemini API key to enable image generation."
-          ),
-          React.createElement("input", {
-            type: "password",
-            value: apiKey,
-            onChange: (e) => setApiKey(e.target.value),
-            placeholder: "Enter your Gemini API key...",
-            className:
-              "w-full bg-slate-900 border-4 border-slate-700 focus:border-lime-400 text-white p-4 font-bold font-['Space_Grotesk'] outline-none transition-colors mb-4",
-          }),
-          React.createElement(
-            "div",
-            { className: "flex gap-4" },
-            React.createElement(
-              "button",
-              {
-                onClick: handleSaveApiKey,
-                className:
-                  "flex-1 bg-lime-400 text-black py-3 font-['Bangers'] text-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all",
-              },
-              "SAVE KEY"
-            ),
-            React.createElement(
-              "button",
-              {
-                onClick: () => setShowApiKeyModal(false),
-                className:
-                  "px-6 py-3 bg-slate-700 text-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all font-['Bangers'] text-xl",
-              },
-              "CANCEL"
-            )
-          )
-        )
-      ),
-
     // Main content
     React.createElement(
       "div",
       { className: "w-full max-w-7xl mx-auto p-4 md:p-8 relative z-10" },
-      // Settings button
-      React.createElement(
-        "button",
-        {
-          onClick: () => setShowApiKeyModal(true),
-          className:
-            "absolute top-4 right-4 p-2 bg-slate-800 border-2 border-slate-600 hover:border-lime-400 text-slate-400 hover:text-lime-400 transition-colors",
-          title: "Configure API Key",
-        },
-        React.createElement(Settings, { size: 20 })
-      ),
 
       React.createElement(Hero),
 

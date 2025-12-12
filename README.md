@@ -23,19 +23,22 @@ A fun web app that fuses your photos with anime characters using Google Gemini A
 
 1. **Clone/Download** the project
 
-2. **Run the server**:
+2. **Set your Gemini API key** as an environment variable:
+   ```bash
+   export MUTANT_GEMINI_API_KEY="your-api-key-here"
+   ```
+
+3. **Run the server**:
    ```bash
    deno task dev
    ```
-   
+
    Or manually:
    ```bash
    deno run --allow-net --allow-read --allow-env server.ts
    ```
 
-3. **Open** http://localhost:8000 in your browser
-
-4. **Configure** your Gemini API key using the ⚙️ button
+4. **Open** http://localhost:8000 in your browser
 
 5. **Upload** a photo of yourself and an anime reference image
 
@@ -46,8 +49,10 @@ A fun web app that fuses your photos with anime characters using Google Gemini A
 ```
 animepfp-fusion-deno/
 ├── deno.json          # Deno configuration & tasks
-├── server.ts          # HTTP server (serves static files)
+├── server.ts          # HTTP server (serves static files + API endpoint)
 ├── build.ts           # Optional build script for bundling
+├── services/
+│   └── geminiService.ts  # Server-side Gemini API logic (uses Deno.env)
 ├── static/
 │   ├── index.html     # Main HTML with import maps
 │   ├── main.js        # Bundled React app
@@ -58,28 +63,49 @@ animepfp-fusion-deno/
 │   │   ├── Hero.tsx
 │   │   └── ImageUploader.tsx
 │   └── services/
-│       └── geminiService.ts
+│       └── geminiService.ts  # Client-side service (calls server API)
 └── README.md
 ```
 
 ## Configuration
 
-### API Key
+### API Key (Required)
 
-You can configure your Gemini API key in two ways:
+The Gemini API key must be set as an environment variable before starting the server. The API key is **only used server-side** and is never exposed to the browser for security.
 
-1. **Environment Variable** (Recommended for production):
-   ```bash
-   export MUTANT_GEMINI_API_KEY="your-api-key-here"
-   deno task dev
-   ```
+```bash
+export MUTANT_GEMINI_API_KEY="your-api-key-here"
+```
 
-2. **Browser Storage**: Click the ⚙️ settings icon in the app to configure it. The key is stored in localStorage.
+**Get your API key**: Visit [Google AI Studio](https://aistudio.google.com/) to create a free API key.
 
-The app checks for the API key in this order:
-1. `MUTANT_GEMINI_API_KEY` environment variable (server-side)
-2. `window.MUTANT_GEMINI_API_KEY` (browser global)
-3. localStorage (browser storage)
+**Architecture**: The app uses a server-side API endpoint (`/api/generate`) that calls the Gemini API with `Deno.env.get("MUTANT_GEMINI_API_KEY")`. The browser never sees the API key.
+
+**For different shells**:
+- **Bash/Zsh**: Add to `~/.bashrc` or `~/.zshrc`:
+  ```bash
+  export MUTANT_GEMINI_API_KEY="your-api-key-here"
+  ```
+
+- **Fish**: Add to `~/.config/fish/config.fish`:
+  ```fish
+  set -x MUTANT_GEMINI_API_KEY "your-api-key-here"
+  ```
+
+- **Windows CMD**:
+  ```cmd
+  set MUTANT_GEMINI_API_KEY=your-api-key-here
+  ```
+
+- **Windows PowerShell**:
+  ```powershell
+  $env:MUTANT_GEMINI_API_KEY="your-api-key-here"
+  ```
+
+**For one-time use**, you can set it inline:
+```bash
+MUTANT_GEMINI_API_KEY="your-key" deno task dev
+```
 
 ### Port
 
