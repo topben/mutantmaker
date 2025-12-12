@@ -12,7 +12,6 @@ import {
   Shirt,
   Zap,
   Crown,
-  Settings,
   X,
   UploadCloud,
 } from "lucide-react";
@@ -30,9 +29,9 @@ const getApiKey = () => {
   if (typeof window !== "undefined" && window.MUTANT_GEMINI_API_KEY) {
     return window.MUTANT_GEMINI_API_KEY;
   }
-  const key = localStorage.getItem("MUTANT_GEMINI_API_KEY");
-  if (key) return key;
-  throw new Error("API Key not set. Please configure your Gemini API key.");
+  throw new Error(
+    "API Key not set. Please set the MUTANT_GEMINI_API_KEY environment variable."
+  );
 };
 
 const convertImageToJpeg = (base64Str) => {
@@ -372,16 +371,6 @@ const App = () => {
   const [resultImage, setResultImage] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-
-  useEffect(() => {
-    const savedKey = localStorage.getItem("MUTANT_GEMINI_API_KEY");
-    if (savedKey) {
-      setApiKey(savedKey);
-      window.MUTANT_GEMINI_API_KEY = savedKey;
-    }
-  }, []);
 
   useEffect(() => {
     let interval;
@@ -393,18 +382,8 @@ const App = () => {
     return () => clearInterval(interval);
   }, [status]);
 
-  const handleSaveApiKey = () => {
-    localStorage.setItem("MUTANT_GEMINI_API_KEY", apiKey);
-    window.MUTANT_GEMINI_API_KEY = apiKey;
-    setShowApiKeyModal(false);
-  };
-
   const handleGenerate = useCallback(async () => {
     if (!subjectImage || !styleImage) return;
-    if (!localStorage.getItem("MUTANT_GEMINI_API_KEY") && !window.MUTANT_GEMINI_API_KEY) {
-      setShowApiKeyModal(true);
-      return;
-    }
 
     setStatus(GenerationStatus.LOADING);
     setErrorMsg(null);
@@ -458,75 +437,10 @@ const App = () => {
       },
     }),
 
-    // API Key Modal
-    showApiKeyModal &&
-      React.createElement(
-        "div",
-        { className: "fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" },
-        React.createElement(
-          "div",
-          {
-            className:
-              "bg-[#1a1b26] border-4 border-black shadow-[8px_8px_0px_0px_#4c1d95] p-8 max-w-md w-full",
-          },
-          React.createElement(
-            "h2",
-            { className: "text-3xl font-['Bangers'] text-lime-400 mb-4" },
-            "🔑 API KEY REQUIRED"
-          ),
-          React.createElement(
-            "p",
-            { className: "text-slate-300 mb-4 font-['Space_Grotesk']" },
-            "Enter your Google Gemini API key to enable image generation."
-          ),
-          React.createElement("input", {
-            type: "password",
-            value: apiKey,
-            onChange: (e) => setApiKey(e.target.value),
-            placeholder: "Enter your Gemini API key...",
-            className:
-              "w-full bg-slate-900 border-4 border-slate-700 focus:border-lime-400 text-white p-4 font-bold font-['Space_Grotesk'] outline-none transition-colors mb-4",
-          }),
-          React.createElement(
-            "div",
-            { className: "flex gap-4" },
-            React.createElement(
-              "button",
-              {
-                onClick: handleSaveApiKey,
-                className:
-                  "flex-1 bg-lime-400 text-black py-3 font-['Bangers'] text-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all",
-              },
-              "SAVE KEY"
-            ),
-            React.createElement(
-              "button",
-              {
-                onClick: () => setShowApiKeyModal(false),
-                className:
-                  "px-6 py-3 bg-slate-700 text-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-all font-['Bangers'] text-xl",
-              },
-              "CANCEL"
-            )
-          )
-        )
-      ),
-
     // Main content
     React.createElement(
       "div",
       { className: "w-full max-w-7xl mx-auto p-4 md:p-8 relative z-10" },
-      // Settings button
-      React.createElement(
-        "button",
-        {
-          onClick: () => setShowApiKeyModal(true),
-          className:
-            "absolute top-4 right-4 p-2 bg-slate-800 border-2 border-slate-600 hover:border-lime-400 text-slate-400 hover:text-lime-400 transition-colors",
-          title: "Configure API Key",
-        },
-        React.createElement(Settings, { size: 20 })
-      ),
 
       React.createElement(Hero),
 
