@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mutant Fusion Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Space+Grotesk:wght@300;400;600;700&display=swap');
+      
+      body {
+        font-family: 'Space Grotesk', sans-serif;
+        background-color: #0b0c15;
+        background-image: 
+          radial-gradient(circle at 15% 50%, rgba(74, 222, 128, 0.1) 0%, transparent 25%),
+          radial-gradient(circle at 85% 30%, rgba(217, 70, 239, 0.15) 0%, transparent 25%);
+        color: #f8fafc;
+        overflow-x: hidden;
+      }
+
+      /* Custom scrollbar for that arcade feel */
+      ::-webkit-scrollbar {
+        width: 12px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e1e2e; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #a3e635; 
+        border: 2px solid #000;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #84cc16; 
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@19.0.0",
+          "react/": "https://esm.sh/react@19.0.0/",
+          "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime",
+          "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+          "@google/genai": "https://esm.sh/@google/genai@1.0.1",
+          "lucide-react": "https://esm.sh/lucide-react@0.460.0?external=react"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
