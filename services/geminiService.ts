@@ -7,6 +7,12 @@ import { GoogleGenAI } from "@google/genai";
 
 export type FusionMode = "style" | "balanced" | "cosplay";
 
+/**
+ * Configuration for retry logic
+ */
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000; // 1 second base delay
+
 interface GenerateRequest {
   subjectBase64: string;
   styleBase64: string;
@@ -27,6 +33,96 @@ const getApiKey = (): string => {
   }
   return apiKey;
 };
+
+/**
+ * Sleep for a specified duration
+ */
+const sleep = (ms: number): Promise<void> => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
+/**
+ * Extract retry delay from Gemini API error response
+ * Returns delay in milliseconds
+ */
+const extractRetryDelay = (error: any): number | null => {
+  try {
+    // Check if error has RetryInfo in details
+    if (error?.details) {
+      for (const detail of error.details) {
+        if (detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo") {
+          const retryDelay = detail.retryDelay;
+          if (retryDelay) {
+            // Parse delay string like "32s" or "32.406210762s"
+            const match = retryDelay.match(/^([\d.]+)s$/);
+            if (match) {
+              return Math.ceil(parseFloat(match[1]) * 1000);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Could not extract retry delay from error:", e);
+  }
+  return null;
+};
+
+/**
+ * Check if error is a rate limit error (429)
+ */
+const isRateLimitError = (error: any): boolean => {
+  return (
+    error?.name === "ClientError" &&
+    (error?.message?.includes("429") ||
+     error?.message?.includes("Too Many Requests") ||
+     error?.message?.includes("RESOURCE_EXHAUSTED"))
+  );
+};
+
+/**
+ * Retry wrapper with exponential backoff for rate limit errors
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  operation: string
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+
+      // Only retry on rate limit errors
+      if (!isRateLimitError(error)) {
+        throw error;
+      }
+
+      // Don't retry if we've exhausted our attempts
+      if (attempt === MAX_RETRIES) {
+        console.error(
+          `Rate limit exceeded after ${MAX_RETRIES} retries for ${operation}`
+        );
+        throw error;
+      }
+
+      // Extract suggested delay from error, or use exponential backoff
+      const suggestedDelay = extractRetryDelay(error);
+      const exponentialDelay = BASE_DELAY_MS * Math.pow(2, attempt);
+      const delay = suggestedDelay || exponentialDelay;
+
+      console.warn(
+        `Rate limit hit for ${operation}. Retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`
+      );
+
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+}
 
 /**
  * Generates an anime PFP by combining a subject image and a style image.
@@ -117,26 +213,32 @@ export const generateAnimePFP = async (
       Additional User Request: ${userPrompt}
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: {
-        parts: [
-          { text: basePrompt },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: cleanSubject,
-            },
+    // Wrap API call with retry logic for rate limit handling
+    const response = await withRetry(
+      async () => {
+        return await ai.models.generateContent({
+          model: "gemini-2.5-flash-image",
+          contents: {
+            parts: [
+              { text: basePrompt },
+              {
+                inlineData: {
+                  mimeType: "image/jpeg",
+                  data: cleanSubject,
+                },
+              },
+              {
+                inlineData: {
+                  mimeType: "image/jpeg",
+                  data: cleanStyle,
+                },
+              },
+            ],
           },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: cleanStyle,
-            },
-          },
-        ],
+        });
       },
-    });
+      "generateContent"
+    );
 
     const candidates = response.candidates;
     if (!candidates || candidates.length === 0) {

@@ -61,13 +61,26 @@ async function handler(req: Request): Promise<Response> {
       );
     } catch (error: any) {
       console.error("API Error:", error);
+
+      // Check if it's a rate limit error
+      const isRateLimit =
+        error?.name === "ClientError" &&
+        (error?.message?.includes("429") ||
+         error?.message?.includes("Too Many Requests") ||
+         error?.message?.includes("RESOURCE_EXHAUSTED"));
+
+      const statusCode = isRateLimit ? 429 : 500;
+      const errorMessage = isRateLimit
+        ? "Rate limit exceeded. Please try again in a few moments."
+        : (error.message || "Failed to generate image");
+
       return new Response(
         JSON.stringify({
           success: false,
-          error: error.message || "Failed to generate image",
+          error: errorMessage,
         }),
         {
-          status: 500,
+          status: statusCode,
           headers: {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
