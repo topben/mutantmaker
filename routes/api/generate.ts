@@ -1,5 +1,9 @@
 import { HandlerContext } from "$fresh/server.ts";
 import { generateAnimePFP } from "../../services/geminiService.ts";
+import { waitForApePayment } from "../../services/ApeChainListener.ts";
+
+// Environment variables are loaded in main.ts/dev.ts
+const APE_PAYMENT_AMOUNT = Deno.env.get("APE_PAYMENT_AMOUNT") || "10.0";
 
 export const handler = async (
   _req: Request,
@@ -17,7 +21,36 @@ export const handler = async (
 
   try {
     const body = await _req.json();
-    const resultImage = await generateAnimePFP(body);
+    const { txHash, ...generateRequest } = body;
+
+    // 1. PAYMENT VALIDATION CHECK
+    if (!txHash) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Payment is required. Please provide a txHash." }),
+        {
+          status: 402, // 402 Payment Required
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const paymentConfirmed = await waitForApePayment(txHash, APE_PAYMENT_AMOUNT);
+
+    if (!paymentConfirmed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Payment verification failed for ${APE_PAYMENT_AMOUNT} APE. Please check the transaction hash and amount.`,
+        }),
+        {
+          status: 402, // 402 Payment Required
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // 2. IMAGE GENERATION (Only proceeds if payment is confirmed)
+    const resultImage = await generateAnimePFP(generateRequest);
 
     return new Response(
       JSON.stringify({ success: true, image: resultImage }),
