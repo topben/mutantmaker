@@ -48,24 +48,13 @@ const APECHAIN_CONFIG = {
   blockExplorerUrls: ["https://apechain.calderaexplorer.xyz"],
 };
 
-// Get environment variables (these should be passed from the server)
-const getConfig = () => {
-  if (typeof window === "undefined") {
-    return {
-      apeContractAddress: "0x4d224452801aced8b2f0aebe155379bb5d594381",
-      receivingWallet: "0xYOUR_RECEIVING_ADDRESS",
-      paymentAmount: "10.0",
-    };
-  }
-  // In production, these should be fetched from an API endpoint or injected during SSR
-  return {
-    apeContractAddress: "0x4d224452801aced8b2f0aebe155379bb5d594381",
-    receivingWallet: globalThis.RECEIVING_WALLET_ADDRESS || "0xYOUR_RECEIVING_ADDRESS",
-    paymentAmount: globalThis.APE_PAYMENT_AMOUNT || "10.0",
-  };
-};
+interface MutantMakerProps {
+  apeContractAddress: string;
+  receivingWallet: string;
+  paymentAmount: string;
+}
 
-export default function MutantMaker() {
+export default function MutantMaker({ apeContractAddress, receivingWallet, paymentAmount }: MutantMakerProps) {
   const [subjectImage, setSubjectImage] = useState<UploadedImage | null>(null);
   const [styleImage, setStyleImage] = useState<UploadedImage | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -143,13 +132,12 @@ export default function MutantMaker() {
   const sendPayment = useCallback(async (userAddress: string) => {
     setPaymentStatus('paying');
 
-    const config = getConfig();
     // Create provider with custom ApeChain network to disable ENS
     const provider = new BrowserProvider(window.ethereum, APECHAIN_NETWORK);
     const signer = await provider.getSigner();
 
     // Create contract instance
-    const apeContract = new Contract(config.apeContractAddress, ERC20_ABI, signer);
+    const apeContract = new Contract(apeContractAddress, ERC20_ABI, signer);
 
     // Get decimals and calculate amount
     // APE on ApeChain is the native token with 18 decimals
@@ -160,10 +148,10 @@ export default function MutantMaker() {
     } catch (error) {
       console.warn("Failed to get decimals from contract, using default 18:", error);
     }
-    const amount = parseUnits(config.paymentAmount, decimals);
+    const amount = parseUnits(paymentAmount, decimals);
 
     // Send transaction
-    const tx = await apeContract.transfer(config.receivingWallet, amount);
+    const tx = await apeContract.transfer(receivingWallet, amount);
 
     setTxHash(tx.hash);
     setPaymentStatus('confirming');
@@ -172,7 +160,7 @@ export default function MutantMaker() {
     await tx.wait(1);
 
     return tx.hash;
-  }, []);
+  }, [apeContractAddress, receivingWallet, paymentAmount]);
 
   const handleGenerate = useCallback(async () => {
     if (!subjectImage || !styleImage) return;
@@ -435,7 +423,7 @@ export default function MutantMaker() {
               ) : (
                 <>
                   <Zap class="w-8 h-8 fill-black" strokeWidth={3} />
-                  {walletConnected ? `PAY ${getConfig().paymentAmount} APE & MUTATE` : "CONNECT & PAY TO MUTATE"}
+                  {walletConnected ? `PAY ${paymentAmount} APE & MUTATE` : "CONNECT & PAY TO MUTATE"}
                 </>
               )}
             </button>

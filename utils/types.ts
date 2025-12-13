@@ -26,8 +26,6 @@ declare global {
       on?: (eventName: string, callback: (...args: any[]) => void) => void;
       removeListener?: (eventName: string, callback: (...args: any[]) => void) => void;
     };
-    RECEIVING_WALLET_ADDRESS?: string;
-    APE_PAYMENT_AMOUNT?: string;
   }
 }
 
