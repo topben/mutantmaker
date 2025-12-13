@@ -13,7 +13,7 @@
     "jsxImportSource": "preact"
   },
   "imports": {
-    "$fresh/": "https://deno.land/x/fresh@1.8.0/",
+    "$fresh/": "https://deno.land/x/fresh@1.7.3/",
     "preact": "https://esm.sh/preact@10.22.0",
     "preact/": "https://esm.sh/preact@10.22.0/",
     "preact-render-to-string": "https://esm.sh/*preact-render-to-string@6.5.4",
@@ -24,5 +24,5 @@
     "lucide-preact": "https://esm.sh/lucide-preact@0.460.0?external=preact"
   },
   "lock": false,
-  "nodeModulesDir": false
+  "nodeModulesDir": "none"
 }
