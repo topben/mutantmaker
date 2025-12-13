@@ -15,6 +15,7 @@ import {
   Zap,
   Crown,
   Wallet,
+  Wrench,
 } from "lucide-preact";
 import { BrowserProvider, Contract, parseUnits, Network } from "ethers";
 
@@ -245,7 +246,18 @@ export default function MutantMaker({ apeContractAddress, receivingWallet, payme
       console.error(err);
       setStatus(GenerationStatus.ERROR);
       setPaymentStatus('idle');
-      setErrorMsg(err.message || "Something went wrong. Please try again.");
+
+      // Enhanced error message logic
+      const errorMessage = err.message || "";
+      const lowerError = errorMessage.toLowerCase();
+
+      if (lowerError.includes("blocked") || lowerError.includes("declined")) {
+        setErrorMsg("Generation was rejected! The AI may have flagged your image/prompt. Try again with a different request.");
+      } else if (lowerError.includes("content parts")) {
+        setErrorMsg("Generation failed due to an unknown API error. Please try clicking MUTATE NOW again!");
+      } else {
+        setErrorMsg(errorMessage || "Something went wrong. Please try again.");
+      }
     }
   }, [subjectImage, styleImage, prompt, showComparison, fusionMode, walletConnected, walletAddress, connectWallet, sendPayment]);
 
@@ -388,6 +400,21 @@ export default function MutantMaker({ apeContractAddress, receivingWallet, payme
                 placeholder="E.g., ADD LASER EYES, GLITCH BACKGROUND, CYBERNETIC JAW..."
                 class="w-full bg-slate-900 border-4 border-slate-700 focus:border-lime-400 text-white p-4 font-bold font-['Space_Grotesk'] outline-none transition-colors h-24 placeholder:text-slate-600"
               />
+            </div>
+          </div>
+
+          {/* Probability Warning Card */}
+          <div class="mt-6 bg-cyan-800/20 border-4 border-cyan-400 text-cyan-200 p-4 shadow-[4px_4px_0px_0px_rgba(34,211,238,0.5)]">
+            <div class="flex items-start gap-3">
+              <Wrench class="w-6 h-6 flex-shrink-0 mt-1" strokeWidth={2.5} />
+              <div>
+                <h3 class="font-['Bangers'] text-xl text-cyan-300 mb-2 tracking-wide">
+                  MUTATION PROBABILITY WARNING
+                </h3>
+                <p class="font-['Space_Grotesk'] text-sm leading-relaxed">
+                  AI image fusion isn't 100% reliable. Results may vary! If the first attempt fails or the image is poor, try running it 3-4 times with the same inputs before changing your prompt.
+                </p>
+              </div>
             </div>
           </div>
 
