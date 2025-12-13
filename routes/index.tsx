@@ -1,8 +1,15 @@
 import { Head } from "$fresh/runtime.ts";
+import { PageProps } from "$fresh/server.ts";
 import Hero from "../components/Hero.tsx";
 import MutantMaker from "../islands/MutantMaker.tsx";
 
-export default function Home() {
+interface HomeProps {
+  apeContractAddress: string;
+  receivingWallet: string;
+  paymentAmount: string;
+}
+
+export default function Home({ data }: PageProps<HomeProps>) {
   return (
     <>
       <Head>
@@ -24,7 +31,11 @@ export default function Home() {
 
         <div class="w-full max-w-7xl mx-auto p-4 md:p-8 relative z-10">
           <Hero />
-          <MutantMaker />
+          <MutantMaker
+            apeContractAddress={data.apeContractAddress}
+            receivingWallet={data.receivingWallet}
+            paymentAmount={data.paymentAmount}
+          />
 
           {/* Footer info */}
           <div class="mt-16 text-center pb-8">
@@ -37,3 +48,16 @@ export default function Home() {
     </>
   );
 }
+
+export const handler = {
+  GET(_req: Request, ctx: any) {
+    // Load environment variables and pass to the component
+    const data: HomeProps = {
+      apeContractAddress: Deno.env.get("APE_COIN_CONTRACT_ADDRESS") || "0x4d224452801aced8b2f0aebe155379bb5d594381",
+      receivingWallet: Deno.env.get("RECEIVING_WALLET_ADDRESS") || "",
+      paymentAmount: Deno.env.get("APE_PAYMENT_AMOUNT") || "10.0",
+    };
+
+    return ctx.render(data);
+  },
+};
