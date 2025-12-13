@@ -1,9 +1,10 @@
 # Mutant Maker - Anime PFP Fusion Lab 🧪🦕
 
-A fun web app that fuses your photos with anime characters using Google Gemini AI. **Rewritten for Deno**.
+A fun web app that fuses your photos with anime characters using Google Gemini AI. **Built with Deno Fresh**.
 
 ![Deno](https://img.shields.io/badge/Deno-1.40+-000000?style=flat&logo=deno)
-![React](https://img.shields.io/badge/React-19-61dafb?style=flat&logo=react)
+![Fresh](https://img.shields.io/badge/Fresh-1.8-yellow?style=flat&logo=deno)
+![Preact](https://img.shields.io/badge/Preact-10-673ab8?style=flat&logo=preact)
 ![Gemini](https://img.shields.io/badge/Gemini-AI-4285F4?style=flat&logo=google)
 
 ## Features
@@ -28,14 +29,14 @@ A fun web app that fuses your photos with anime characters using Google Gemini A
    export MUTANT_GEMINI_API_KEY="your-api-key-here"
    ```
 
-3. **Run the server**:
+3. **Run the dev server**:
    ```bash
    deno task dev
    ```
 
-   Or manually:
+   Or run in production mode:
    ```bash
-   deno run --allow-net --allow-read --allow-env server.ts
+   deno task start
    ```
 
 4. **Open** http://localhost:8000 in your browser
@@ -47,23 +48,25 @@ A fun web app that fuses your photos with anime characters using Google Gemini A
 ## Project Structure
 
 ```
-animepfp-fusion-deno/
-├── deno.json          # Deno configuration & tasks
-├── server.ts          # HTTP server (serves static files + API endpoint)
-├── build.ts           # Optional build script for bundling
+mutantmaker/
+├── deno.json             # Deno configuration & tasks
+├── fresh.config.ts       # Fresh framework configuration
+├── main.ts              # Production entry point
+├── dev.ts               # Development entry point
+├── routes/
+│   ├── _app.tsx         # App wrapper with HTML structure
+│   ├── index.tsx        # Home page route
+│   └── api/
+│       └── generate.ts  # Image generation API endpoint
+├── islands/
+│   ├── MutantMaker.tsx  # Main interactive component (client-side)
+│   └── ImageUploader.tsx # Image upload component (client-side)
+├── components/
+│   └── Hero.tsx         # Static hero component (SSR)
 ├── services/
-│   └── geminiService.ts  # Server-side Gemini API logic (uses Deno.env)
-├── static/
-│   ├── index.html     # Main HTML with import maps
-│   ├── main.js        # Bundled React app
-│   ├── main.tsx       # React entry point (source)
-│   ├── App.tsx        # Main app component
-│   ├── types.ts       # TypeScript types
-│   ├── components/
-│   │   ├── Hero.tsx
-│   │   └── ImageUploader.tsx
-│   └── services/
-│       └── geminiService.ts  # Client-side service (calls server API)
+│   └── geminiService.ts # Server-side Gemini API logic
+├── utils/
+│   └── types.ts         # Shared TypeScript types
 └── README.md
 ```
 
@@ -79,7 +82,7 @@ export MUTANT_GEMINI_API_KEY="your-api-key-here"
 
 **Get your API key**: Visit [Google AI Studio](https://aistudio.google.com/) to create a free API key.
 
-**Architecture**: The app uses a server-side API endpoint (`/api/generate`) that calls the Gemini API with `Deno.env.get("MUTANT_GEMINI_API_KEY")`. The browser never sees the API key.
+**Architecture**: Built with Deno Fresh using the Islands Architecture. The app uses a server-side API route (`routes/api/generate.ts`) that calls the Gemini API with `Deno.env.get("MUTANT_GEMINI_API_KEY")`. The API key is only used server-side and never exposed to the browser.
 
 **For different shells**:
 - **Bash/Zsh**: Add to `~/.bashrc` or `~/.zshrc`:
@@ -116,39 +119,37 @@ PORT=3000 deno task start
 
 ## Development
 
-### Using Source Files
-
-If you want to modify and build from source TSX files:
-
-```bash
-# Build the bundle
-deno run --allow-read --allow-write --allow-env --allow-run build.ts
-
-# Then run the server
-deno task dev
-```
-
 ### Hot Reload
 
-The `dev` task includes `--watch` for auto-reload on changes.
+The `dev` task includes `--watch` for auto-reload on file changes in `routes/` and `static/` directories.
 
-## Differences from Node/Vite Version
+### Fresh Islands Architecture
 
-| Feature | Node/Vite | Deno |
-|---------|-----------|------|
-| Package Manager | npm | URL imports via esm.sh |
-| Build Tool | Vite | Native Deno + esbuild |
-| Config | package.json, vite.config.ts | deno.json |
-| Server | Vite dev server | Native Deno.serve() |
-| TypeScript | Compiled via Vite | Native support |
+Fresh uses the Islands Architecture for optimal performance:
+- **Components** (`components/`): Server-side rendered, no JavaScript sent to client
+- **Islands** (`islands/`): Interactive components with client-side JavaScript
+- **Routes** (`routes/`): File-based routing with SSR support
+
+## Architecture
+
+| Feature | Technology |
+|---------|-----------|
+| Runtime | Deno |
+| Framework | Fresh 1.8 (Islands Architecture) |
+| UI Library | Preact 10 |
+| Styling | Tailwind CSS (CDN) |
+| Routing | File-based routing |
+| Rendering | Server-Side Rendering (SSR) + Islands |
+| TypeScript | Native Deno support |
 
 ## Tech Stack
 
 - **Runtime**: Deno
-- **Frontend**: React 19 (via esm.sh)
+- **Framework**: Fresh 1.8
+- **Frontend**: Preact 10 (via esm.sh)
 - **Styling**: Tailwind CSS (CDN)
-- **Icons**: Lucide React
-- **AI**: Google Gemini API
+- **Icons**: Lucide Preact
+- **AI**: Google Gemini API (gemini-2.5-flash-image)
 
 ## License
 
@@ -156,4 +157,4 @@ MIT
 
 ---
 
-Made with 🧬 and Deno 🦕
+Made with 🧬 and Deno Fresh 🦕
