@@ -119,11 +119,24 @@ async function verifyERC20Payment(
         const contract = new Contract(contractAddress, ERC20_ABI, provider);
         const normalizedContract = contractAddress.toLowerCase();
 
-        for (const log of receipt.logs) {
+        console.log(`🔍 Debugging ERC-20 Transfer detection:`);
+        console.log(`   Total logs in receipt: ${receipt.logs.length}`);
+        console.log(`   Expected contract: ${normalizedContract}`);
+
+        for (let i = 0; i < receipt.logs.length; i++) {
+            const log = receipt.logs[i];
+            console.log(`\n   Log ${i}:`);
+            console.log(`     Address: ${log.address.toLowerCase()}`);
+            console.log(`     Topics: ${JSON.stringify(log.topics)}`);
+            console.log(`     Data: ${log.data}`);
+
             // Only check logs from the expected contract
             if (log.address.toLowerCase() !== normalizedContract) {
+                console.log(`     ❌ Skipped: Address mismatch`);
                 continue;
             }
+
+            console.log(`     ✓ Address matches, attempting to parse...`);
 
             try {
                 const parsedLog = contract.interface.parseLog({
@@ -131,19 +144,26 @@ async function verifyERC20Payment(
                     data: log.data
                 });
 
+                console.log(`     Parsed log name: ${parsedLog?.name}`);
+                console.log(`     Parsed log args: ${parsedLog?.args}`);
+
                 if (parsedLog && parsedLog.name === "Transfer") {
                     const [from, to, value] = parsedLog.args;
+
+                    console.log(`     Transfer from: ${from}`);
+                    console.log(`     Transfer to: ${to}`);
+                    console.log(`     Transfer value: ${value}`);
 
                     const isToReceiver = to.toLowerCase() === receivingAddress;
                     const isCorrectAmount = value === expectedAmount;
 
                     if (!isToReceiver) {
-                        console.warn(`ERC-20 transfer to wrong address. Expected: ${receivingAddress}, Got: ${to}`);
+                        console.warn(`     ❌ ERC-20 transfer to wrong address. Expected: ${receivingAddress}, Got: ${to}`);
                         continue;
                     }
 
                     if (!isCorrectAmount) {
-                        console.warn(`ERC-20 transfer incorrect amount. Expected: ${expectedAmount}, Got: ${value}`);
+                        console.warn(`     ❌ ERC-20 transfer incorrect amount. Expected: ${expectedAmount}, Got: ${value}`);
                         continue;
                     }
 
@@ -152,11 +172,12 @@ async function verifyERC20Payment(
                 }
             } catch (e) {
                 // Log is not a Transfer event or parsing failed
+                console.log(`     ❌ Parse error:`, e);
                 continue;
             }
         }
 
-        console.warn(`No valid ERC-20 Transfer event found in transaction logs`);
+        console.warn(`\n❌ No valid ERC-20 Transfer event found in transaction logs`);
         return false;
     } catch (error) {
         console.error(`Error verifying ERC-20 payment:`, error);

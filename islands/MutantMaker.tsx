@@ -54,6 +54,22 @@ interface MutantMakerProps {
   paymentAmount: string;
 }
 
+// Utility to detect if the configured address refers to the native token
+const NATIVE_TOKEN_ADDRESSES = [
+  "0x0000000000000000000000000000000000000000",
+  "native",
+  "NATIVE",
+  ""
+];
+
+function isNativeApe(address: string | undefined): boolean {
+    if (!address) return true;
+    const normalized = address.toLowerCase().trim();
+    // Also consider the default ERC-20 address as non-native
+    if (normalized === "0x4d224452801aced8b2f0aebe155379bb5d594381") return false;
+    return NATIVE_TOKEN_ADDRESSES.some(addr => addr.toLowerCase() === normalized);
+}
+
 export default function MutantMaker({ apeContractAddress, receivingWallet, paymentAmount }: MutantMakerProps) {
   const [subjectImage, setSubjectImage] = useState<UploadedImage | null>(null);
   const [styleImage, setStyleImage] = useState<UploadedImage | null>(null);
@@ -128,7 +144,7 @@ export default function MutantMaker({ apeContractAddress, receivingWallet, payme
     }
   }, []);
 
-  // Send ApeCoin payment
+  // Send ApeCoin payment - REFACTORED
   const sendPayment = useCallback(async (userAddress: string) => {
     setPaymentStatus('paying');
 
@@ -136,30 +152,44 @@ export default function MutantMaker({ apeContractAddress, receivingWallet, payme
     const provider = new BrowserProvider(window.ethereum, APECHAIN_NETWORK);
     const signer = await provider.getSigner();
 
-    // Create contract instance
-    const apeContract = new Contract(apeContractAddress, ERC20_ABI, signer);
+    const isNative = isNativeApe(apeContractAddress);
+    let txHash: string;
 
-    // Get decimals and calculate amount
-    // APE on ApeChain is the native token with 18 decimals
-    // Fallback to 18 if decimals() call fails
-    let decimals = 18;
-    try {
-      decimals = await apeContract.decimals();
-    } catch (error) {
-      console.warn("Failed to get decimals from contract, using default 18:", error);
+    if (isNative) {
+        // Native APE transfer: Use signer.sendTransaction with value
+        const amount = parseUnits(paymentAmount, 18); // Native APE is always 18 decimals
+
+        const tx = await signer.sendTransaction({
+            to: receivingWallet,
+            value: amount,
+        });
+        txHash = tx.hash;
+
+    } else {
+        // ERC-20 token transfer: Use contract.transfer
+        const apeContract = new Contract(apeContractAddress, ERC20_ABI, signer);
+
+        // Get decimals and calculate amount (with fallback to 18)
+        let decimals = 18;
+        try {
+            decimals = await apeContract.decimals();
+        } catch (error) {
+            console.warn("Failed to get decimals from contract, using default 18:", error);
+        }
+        const amount = parseUnits(paymentAmount, decimals);
+
+        // Send transaction
+        const tx = await apeContract.transfer(receivingWallet, amount);
+        txHash = tx.hash;
     }
-    const amount = parseUnits(paymentAmount, decimals);
 
-    // Send transaction
-    const tx = await apeContract.transfer(receivingWallet, amount);
-
-    setTxHash(tx.hash);
+    setTxHash(txHash);
     setPaymentStatus('confirming');
 
-    // Wait for transaction confirmation
-    await tx.wait(1);
+    // Wait for transaction confirmation (1 confirmation for better UX)
+    await provider.waitForTransaction(txHash, 1);
 
-    return tx.hash;
+    return txHash;
   }, [apeContractAddress, receivingWallet, paymentAmount]);
 
   const handleGenerate = useCallback(async () => {
