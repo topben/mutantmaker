@@ -1,6 +1,7 @@
 import { HandlerContext } from "$fresh/server.ts";
 import { generateAnimePFP } from "../../services/geminiService.ts";
 import { waitForApePayment } from "../../services/ApeChainListener.ts";
+import { applyRateLimit, getClientIP, checkRateLimit } from "../../services/rateLimiter.ts";
 
 // Environment variables are loaded in main.ts/dev.ts
 const APE_PAYMENT_AMOUNT = Deno.env.get("APE_PAYMENT_AMOUNT") || "0.1";
@@ -18,6 +19,16 @@ export const handler = async (
       },
     });
   }
+
+  // Apply rate limiting
+  const rateLimitResponse = await applyRateLimit(_req);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
+  // Get rate limit info for headers
+  const clientIP = getClientIP(_req);
+  const rateLimitInfo = await checkRateLimit(clientIP);
 
   try {
     const body = await _req.json();
@@ -59,6 +70,9 @@ export const handler = async (
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
+          "X-RateLimit-Limit": "10",
+          "X-RateLimit-Remaining": rateLimitInfo.remaining.toString(),
+          "X-RateLimit-Reset": rateLimitInfo.resetTime.toString(),
         },
       }
     );

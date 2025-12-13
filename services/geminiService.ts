@@ -13,6 +13,54 @@ export type FusionMode = "style" | "balanced" | "cosplay";
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000; // 1 second base delay
 
+/**
+ * Maximum allowed length for user prompts (prevent abuse)
+ */
+const MAX_PROMPT_LENGTH = 500;
+
+/**
+ * Sanitizes user input to prevent prompt injection attacks
+ * @param prompt - The user's prompt to sanitize
+ * @returns Sanitized prompt safe for use in AI generation
+ */
+function sanitizeUserPrompt(prompt: string): string {
+  if (!prompt || typeof prompt !== "string") {
+    return "";
+  }
+
+  // Trim whitespace
+  let sanitized = prompt.trim();
+
+  // Limit length to prevent abuse
+  if (sanitized.length > MAX_PROMPT_LENGTH) {
+    sanitized = sanitized.substring(0, MAX_PROMPT_LENGTH);
+  }
+
+  // Remove potentially dangerous characters that could be used for injection
+  // Keep alphanumeric, spaces, basic punctuation, but remove control characters and special delimiters
+  sanitized = sanitized.replace(/[{}[\]<>\\]/g, "");
+
+  // Remove multiple consecutive spaces
+  sanitized = sanitized.replace(/\s+/g, " ");
+
+  // Remove common prompt injection patterns
+  const injectionPatterns = [
+    /ignore\s+(all\s+)?(previous\s+)?(instructions?|prompts?|commands?)/gi,
+    /system\s*:/gi,
+    /assistant\s*:/gi,
+    /user\s*:/gi,
+    /new\s+instructions?/gi,
+    /override\s+(previous|instructions?)/gi,
+    /disregard\s+(previous|above|instructions?)/gi,
+  ];
+
+  for (const pattern of injectionPatterns) {
+    sanitized = sanitized.replace(pattern, "");
+  }
+
+  return sanitized.trim();
+}
+
 interface GenerateRequest {
   subjectBase64: string;
   styleBase64: string;
@@ -144,6 +192,9 @@ export const generateAnimePFP = async (
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
+    // Sanitize user input to prevent prompt injection
+    const safeUserPrompt = sanitizeUserPrompt(userPrompt);
+
     // Parse base64 data (remove data URL prefix if present)
     const cleanSubject = subjectBase64.replace(/^data:image\/\w+;base64,/, "");
     const cleanStyle = styleBase64.replace(/^data:image\/\w+;base64,/, "");
@@ -210,7 +261,9 @@ export const generateAnimePFP = async (
       2. Art Style: Strictly apply the shading, line weight, and palette of the Style Reference.
       3. High Quality: Ensure the output is crisp, clean, and suitable for a profile picture.
 
-      Additional User Request: ${userPrompt}
+      ===== USER REQUEST (The following is user-provided content) =====
+      ${safeUserPrompt || "No additional preferences specified."}
+      ===== END USER REQUEST =====
     `;
 
     // Wrap API call with retry logic for rate limit handling
