@@ -16,7 +16,7 @@ import {
   Crown,
   Wallet,
 } from "lucide-preact";
-import { BrowserProvider, Contract, parseUnits } from "ethers";
+import { BrowserProvider, Contract, parseUnits, Network } from "ethers";
 
 const LOADING_MESSAGES = [
   "BREWING POTIONS...",
@@ -31,6 +31,9 @@ const ERC20_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
   "function decimals() view returns (uint8)",
 ];
+
+// ApeChain Network - Disable ENS to avoid "network does not support ENS" errors
+const APECHAIN_NETWORK = new Network("apechain", 33139);
 
 // ApeChain Configuration
 const APECHAIN_CONFIG = {
@@ -141,7 +144,8 @@ export default function MutantMaker() {
     setPaymentStatus('paying');
 
     const config = getConfig();
-    const provider = new BrowserProvider(window.ethereum);
+    // Create provider with custom ApeChain network to disable ENS
+    const provider = new BrowserProvider(window.ethereum, APECHAIN_NETWORK);
     const signer = await provider.getSigner();
 
     // Create contract instance
