@@ -11,12 +11,18 @@ export default function Hero() {
         👁️
       </div>
 
-      <div class="inline-flex items-center justify-center px-6 py-2 bg-yellow-400 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform -rotate-2 mb-6">
+{/* Link to external site */}
+      <a 
+        href="https://mutantmaker.xyz"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center justify-center px-6 py-2 bg-yellow-400 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform -rotate-2 mb-6 hover:scale-105 transition-transform cursor-pointer no-underline"
+      >
         <Zap class="w-5 h-5 text-black mr-2 fill-black" />
         <span class="text-black font-['Bangers'] text-xl tracking-wider">
           ENTER THE LAB
         </span>
-      </div>
+      </a>
 
       <h1 class="text-6xl md:text-8xl font-['Bangers'] text-white drop-shadow-[4px_4px_0px_rgba(163,230,53,1)] mb-4 tracking-wide leading-none">
         MUTANT{" "}
