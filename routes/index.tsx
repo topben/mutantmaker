@@ -55,7 +55,7 @@ export const handler = {
     const data: HomeProps = {
       apeContractAddress: Deno.env.get("APE_COIN_CONTRACT_ADDRESS") || "0x4d224452801aced8b2f0aebe155379bb5d594381",
       receivingWallet: Deno.env.get("RECEIVING_WALLET_ADDRESS") || "",
-      paymentAmount: Deno.env.get("APE_PAYMENT_AMOUNT") || "10.0",
+      paymentAmount: Deno.env.get("APE_PAYMENT_AMOUNT") || "0.1",
     };
 
     return ctx.render(data);

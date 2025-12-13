@@ -43,8 +43,8 @@ APE_COIN_CONTRACT_ADDRESS=native
 # Your wallet address to receive payments
 RECEIVING_WALLET_ADDRESS=0xYOUR_RECEIVING_ADDRESS
 
-# Payment amount in APE tokens
-APE_PAYMENT_AMOUNT=10.0
+# Payment amount in APE tokens (0.1 APE per mutant generation)
+APE_PAYMENT_AMOUNT=0.1
 ```
 
 ### Configuration Details
@@ -60,7 +60,7 @@ APE_PAYMENT_AMOUNT=10.0
     - Verified via Transfer event logs
     - Decimals fetched from contract
 - **RECEIVING_WALLET_ADDRESS**: Your EOA (Externally Owned Account) address where payments will be sent
-- **APE_PAYMENT_AMOUNT**: Fixed amount in APE tokens (e.g., "10.0" for 10 APE)
+- **APE_PAYMENT_AMOUNT**: Payment amount in APE tokens (e.g., "0.1" for 0.1 APE per mutant generation - customize as needed)
 
 ## Architecture
 
@@ -170,7 +170,7 @@ The system handles various error scenarios:
 
 1. **Mainnet Testing** (requires real APE):
    - Ensure you have APE tokens on ApeChain
-   - Set payment amount to minimum (e.g., "0.1")
+   - Default payment amount is 0.1 APE per mutant (customize in .env)
    - Test full payment flow
 
 2. **Backend Testing** (without frontend):

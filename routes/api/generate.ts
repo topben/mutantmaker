@@ -3,7 +3,7 @@ import { generateAnimePFP } from "../../services/geminiService.ts";
 import { waitForApePayment } from "../../services/ApeChainListener.ts";
 
 // Environment variables are loaded in main.ts/dev.ts
-const APE_PAYMENT_AMOUNT = Deno.env.get("APE_PAYMENT_AMOUNT") || "10.0";
+const APE_PAYMENT_AMOUNT = Deno.env.get("APE_PAYMENT_AMOUNT") || "0.1";
 
 export const handler = async (
   _req: Request,
