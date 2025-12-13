@@ -39,7 +39,14 @@ export async function waitForApePayment(txHash: string, expectedAmount: string):
         console.log(`Verifying payment for TX: ${txHash}`);
 
         // 1. Get Decimals and Expected Amount in Wei
-        const decimals = await apeContract.decimals();
+        // APE on ApeChain is the native token with 18 decimals
+        // Fallback to 18 if decimals() call fails
+        let decimals = 18;
+        try {
+            decimals = await apeContract.decimals();
+        } catch (error) {
+            console.warn("Failed to get decimals from contract, using default 18:", error);
+        }
         const expectedWei = parseUnits(expectedAmount, decimals);
         const receivingAddress = RECEIVING_WALLET_ADDRESS.toLowerCase();
 
