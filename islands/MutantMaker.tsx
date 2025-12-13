@@ -16,6 +16,7 @@ import {
   Crown,
   Wallet,
   Wrench,
+  Info,
 } from "lucide-preact";
 import { BrowserProvider, Contract, parseUnits, Network } from "ethers";
 
@@ -453,6 +454,19 @@ export default function MutantMaker({ apeContractAddress, receivingWallet, payme
               <p class="font-mono text-xs uppercase">TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}</p>
             </div>
           )}
+
+          {/* Network/Payment Reminder */}
+          <div class="mt-4 bg-blue-900/30 border-4 border-blue-500 text-blue-200 p-3 flex items-center gap-3 shadow-[4px_4px_0px_0px_#3b82f6]">
+            <Info class="w-6 h-6 flex-shrink-0 text-blue-400" strokeWidth={2.5} />
+            <div>
+              <p class="font-['Space_Grotesk'] text-xs md:text-sm font-bold tracking-wide">
+                NETWORK: <span class="text-white">APECHAIN</span> • CURRENCY: <span class="text-white">APE ($APE)</span>
+              </p>
+              <p class="text-xs opacity-80 mt-1">
+                Please ensure your wallet is connected to ApeChain to pay.
+              </p>
+            </div>
+          </div>
 
           <div class="mt-8">
             <button
