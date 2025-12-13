@@ -33,7 +33,7 @@ const ERC20_ABI = [
 ];
 
 // ApeChain Network - Disable ENS to avoid "network does not support ENS" errors
-const APECHAIN_NETWORK = new Network("apechain", 33139);
+const APECHAIN_NETWORK = new Network("apechain", 33139, { ensAddress: null });
 
 // ApeChain Configuration
 const APECHAIN_CONFIG = {
