@@ -537,11 +537,16 @@ export default function MutantMaker({ apeContractAddress, receivingWallet, payme
             ) : (
               <div class="text-center p-8 relative z-10">
                 {status === GenerationStatus.IDLE && (
-                  <div class="flex flex-col items-center opacity-50">
-                    <div class="w-32 h-32 bg-slate-900 border-4 border-slate-700 rounded-full flex items-center justify-center mb-6">
-                      <span class="text-6xl grayscale">🦍</span>
+                  <div class="flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity duration-300">
+                    <div class="w-48 h-48 bg-slate-900 border-4 border-lime-400 rounded-full flex items-center justify-center mb-6 overflow-hidden shadow-[0_0_30px_rgba(163,230,53,0.3)] relative group">
+                      <div class="absolute inset-0 bg-lime-400/20 mix-blend-overlay z-10 group-hover:bg-transparent transition-colors"></div>
+                      <img 
+                        src="/mutant.avif" 
+                        alt="Awaiting Subject" 
+                        class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-out"
+                      />
                     </div>
-                    <p class="font-['Bangers'] text-2xl text-slate-500 tracking-wide">
+                    <p class="font-['Bangers'] text-3xl text-lime-400 tracking-wide drop-shadow-md">
                       AWAITING SUBJECT...
                     </p>
                   </div>

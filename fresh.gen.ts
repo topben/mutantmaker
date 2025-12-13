@@ -7,7 +7,7 @@ import * as $api_generate from "./routes/api/generate.ts";
 import * as $index from "./routes/index.tsx";
 import * as $ImageUploader from "./islands/ImageUploader.tsx";
 import * as $MutantMaker from "./islands/MutantMaker.tsx";
-import { type Manifest } from "$fresh/server.ts";
+import type { Manifest } from "$fresh/server.ts";
 
 const manifest = {
   routes: {
