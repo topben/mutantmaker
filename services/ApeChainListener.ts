@@ -20,7 +20,7 @@ const ERC20_ABI = [
 ];
 
 // ApeChain Network - Disable ENS to avoid "network does not support ENS" errors
-const APECHAIN_NETWORK = new Network("apechain", 33139);
+const APECHAIN_NETWORK = new Network("apechain", 33139, { ensAddress: null });
 
 const provider = new JsonRpcProvider(APE_CHAIN_RPC_URL, APECHAIN_NETWORK);
 const apeContract = new Contract(APE_COIN_CONTRACT_ADDRESS, ERC20_ABI, provider);
