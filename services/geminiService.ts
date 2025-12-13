@@ -245,9 +245,25 @@ export const generateAnimePFP = async (
       throw new Error("No candidates returned from Gemini.");
     }
 
+    // Check for blocking or safety issues
+    const firstCandidate = candidates[0];
+    if (firstCandidate.finishReason && firstCandidate.finishReason !== "STOP") {
+      console.error("Gemini response blocked:", {
+        finishReason: firstCandidate.finishReason,
+        safetyRatings: firstCandidate.safetyRatings,
+      });
+      throw new Error(
+        `Content generation blocked: ${firstCandidate.finishReason}. This may be due to safety filters. Please try different images.`
+      );
+    }
+
     const parts = candidates[0].content?.parts;
-    if (!parts) {
-      throw new Error("No content parts returned.");
+    if (!parts || parts.length === 0) {
+      console.error("No content parts in response:", {
+        candidate: firstCandidate,
+        finishReason: firstCandidate.finishReason,
+      });
+      throw new Error("No content parts returned. The model may have declined to generate the image.");
     }
 
     const imagePart = parts.find((part: any) => part.inlineData);
