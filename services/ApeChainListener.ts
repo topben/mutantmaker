@@ -1,4 +1,4 @@
-import { Contract, JsonRpcProvider, parseUnits, isAddress } from "ethers";
+import { Contract, JsonRpcProvider, parseUnits, isAddress, Network } from "ethers";
 import { load } from "https://deno.land/std@0.216.0/dotenv/mod.ts";
 
 const env = await load();
@@ -19,7 +19,10 @@ const ERC20_ABI = [
   "function decimals() view returns (uint8)",
 ];
 
-const provider = new JsonRpcProvider(APE_CHAIN_RPC_URL);
+// ApeChain Network - Disable ENS to avoid "network does not support ENS" errors
+const APECHAIN_NETWORK = new Network("apechain", 33139);
+
+const provider = new JsonRpcProvider(APE_CHAIN_RPC_URL, APECHAIN_NETWORK);
 const apeContract = new Contract(APE_COIN_CONTRACT_ADDRESS, ERC20_ABI, provider);
 
 /**
