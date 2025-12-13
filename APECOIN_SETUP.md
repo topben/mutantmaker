@@ -35,8 +35,10 @@ WALLET_CONNECT_PROJECT_ID=YOUR_WC_PROJECT_ID
 # ApeChain RPC URL
 APE_CHAIN_RPC_URL=https://rpc.apechain.com
 
-# ApeCoin ERC-20 Contract Address on ApeChain
-APE_COIN_CONTRACT_ADDRESS=0x4d224452801aced8b2f0aebe155379bb5d594381
+# ApeCoin Payment Configuration
+# For NATIVE APE payments (recommended): Use "native", "0x0000000000000000000000000000000000000000", or leave empty
+# For ERC-20 APE token payments: Use the token contract address (e.g., 0x4d224452801aced8b2f0aebe155379bb5d594381)
+APE_COIN_CONTRACT_ADDRESS=native
 
 # Your wallet address to receive payments
 RECEIVING_WALLET_ADDRESS=0xYOUR_RECEIVING_ADDRESS
@@ -49,7 +51,14 @@ APE_PAYMENT_AMOUNT=10.0
 
 - **WALLET_CONNECT_PROJECT_ID**: Required for Web3Modal integration. Sign up at WalletConnect Cloud.
 - **APE_CHAIN_RPC_URL**: The RPC endpoint for ApeChain. Default is `https://rpc.apechain.com`
-- **APE_COIN_CONTRACT_ADDRESS**: The official APE token contract on ApeChain
+- **APE_COIN_CONTRACT_ADDRESS**:
+  - **For Native APE** (recommended): Set to `"native"`, `"0x0000000000000000000000000000000000000000"`, or leave empty
+    - Native APE is the gas token on ApeChain (like ETH on Ethereum)
+    - Always uses 18 decimals
+    - No contract calls needed - verified via transaction value
+  - **For ERC-20 APE Token**: Set to the token contract address (e.g., `0x4d224452801aced8b2f0aebe155379bb5d594381`)
+    - Verified via Transfer event logs
+    - Decimals fetched from contract
 - **RECEIVING_WALLET_ADDRESS**: Your EOA (Externally Owned Account) address where payments will be sent
 - **APE_PAYMENT_AMOUNT**: Fixed amount in APE tokens (e.g., "10.0" for 10 APE)
 
@@ -58,11 +67,20 @@ APE_PAYMENT_AMOUNT=10.0
 ### Backend Components
 
 #### 1. `services/ApeChainListener.ts`
-Handles on-chain payment verification:
-- Connects to ApeChain RPC
-- Waits for transaction confirmation
-- Validates transfer amount and recipient
-- Parses ERC-20 Transfer events from transaction logs
+Handles on-chain payment verification with support for both native and ERC-20 payments:
+- **Native APE Verification**:
+  - Checks transaction `value` field (no contract calls)
+  - Validates recipient address matches
+  - Uses 18 decimals (protocol standard)
+- **ERC-20 Token Verification**:
+  - Parses Transfer event logs
+  - Fetches decimals from contract
+  - Validates amount and recipient from event data
+- **Security Features**:
+  - Requires 3 confirmations before acceptance
+  - Replay protection (prevents transaction reuse)
+  - Input validation (tx hash format, amounts)
+  - Comprehensive error handling
 
 #### 2. `routes/api/generate.ts`
 Modified API endpoint:
@@ -95,15 +113,19 @@ TypeScript definitions for Web3:
    - If wallet not connected: Prompts wallet connection
    - Requests ApeChain network switch (adds if not present)
 4. **Payment Transaction**:
-   - Constructs ERC-20 transfer transaction
+   - For Native APE: Simple value transfer transaction
+   - For ERC-20: Token transfer contract call
    - User approves in MetaMask
    - Transaction hash displayed to user
 5. **Confirmation**:
-   - Frontend waits for 1 confirmation
+   - Frontend waits for initial confirmation
    - Sends txHash to backend
 6. **Backend Verification**:
-   - Fetches transaction receipt from ApeChain
-   - Validates recipient and amount
+   - Waits for 3 confirmations (security best practice)
+   - Determines payment type (native vs ERC-20)
+   - For Native: Validates transaction value and recipient
+   - For ERC-20: Parses Transfer events from logs
+   - Checks replay protection (prevents reusing txHash)
    - Generates image only if payment valid
 7. **Image Delivery**: User receives generated image
 
@@ -219,6 +241,21 @@ For Deno Deploy or similar platforms:
 - Verify payment amount matches APE_PAYMENT_AMOUNT
 - Confirm payment sent to RECEIVING_WALLET_ADDRESS
 - Check ApeChain RPC is accessible
+
+**"could not decode result data" or "decimals() failed"**
+- This means you're trying to call `decimals()` on native APE
+- Solution: Set `APE_COIN_CONTRACT_ADDRESS=native` in your .env file
+- Native APE doesn't have contract functions - it's the chain's gas token
+
+**"Transfer event not found" for valid payments**
+- This happens when verifying native APE with ERC-20 logic
+- Native transfers don't emit Transfer events
+- Solution: Configure for native APE (see above)
+
+**Transaction already processed (replay attempt)**
+- Each transaction can only be used once (security feature)
+- User must make a new payment for each generation
+- For testing: Use `clearProcessedTransaction(txHash)` helper
 
 **"Please install MetaMask"**
 - Install MetaMask browser extension
