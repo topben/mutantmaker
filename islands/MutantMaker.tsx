@@ -14,7 +14,9 @@ import {
   Shirt,
   Zap,
   Crown,
+  Wallet,
 } from "lucide-preact";
+import { BrowserProvider, Contract, parseUnits } from "ethers";
 
 const LOADING_MESSAGES = [
   "BREWING POTIONS...",
@@ -23,6 +25,42 @@ const LOADING_MESSAGES = [
   "SUMMONING SPIRITS...",
   "GLITCHING THE MATRIX...",
 ];
+
+// ERC-20 ABI for transfer function
+const ERC20_ABI = [
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function decimals() view returns (uint8)",
+];
+
+// ApeChain Configuration
+const APECHAIN_CONFIG = {
+  chainId: "0x8173", // 33139 in decimal
+  chainName: "ApeChain",
+  rpcUrls: ["https://rpc.apechain.com"],
+  nativeCurrency: {
+    name: "ApeCoin",
+    symbol: "APE",
+    decimals: 18,
+  },
+  blockExplorerUrls: ["https://apechain.calderaexplorer.xyz"],
+};
+
+// Get environment variables (these should be passed from the server)
+const getConfig = () => {
+  if (typeof window === "undefined") {
+    return {
+      apeContractAddress: "0x4d224452801aced8b2f0aebe155379bb5d594381",
+      receivingWallet: "0xYOUR_RECEIVING_ADDRESS",
+      paymentAmount: "10.0",
+    };
+  }
+  // In production, these should be fetched from an API endpoint or injected during SSR
+  return {
+    apeContractAddress: "0x4d224452801aced8b2f0aebe155379bb5d594381",
+    receivingWallet: globalThis.RECEIVING_WALLET_ADDRESS || "0xYOUR_RECEIVING_ADDRESS",
+    paymentAmount: globalThis.APE_PAYMENT_AMOUNT || "10.0",
+  };
+};
 
 export default function MutantMaker() {
   const [subjectImage, setSubjectImage] = useState<UploadedImage | null>(null);
@@ -35,6 +73,12 @@ export default function MutantMaker() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
 
+  // Web3 State
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'connecting' | 'paying' | 'confirming' | 'generating'>('idle');
+  const [txHash, setTxHash] = useState<string | null>(null);
+
   // Cycle loading messages
   useEffect(() => {
     let interval: number | undefined;
@@ -46,6 +90,79 @@ export default function MutantMaker() {
     return () => clearInterval(interval);
   }, [status]);
 
+  // Connect wallet and switch to ApeChain
+  const connectWallet = useCallback(async () => {
+    if (typeof window.ethereum === "undefined") {
+      throw new Error("Please install MetaMask or another Web3 wallet to continue.");
+    }
+
+    setPaymentStatus('connecting');
+
+    try {
+      // Request account access
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+
+      if (!accounts || accounts.length === 0) {
+        throw new Error("No accounts found. Please connect your wallet.");
+      }
+
+      setWalletAddress(accounts[0]);
+
+      // Switch to ApeChain or add it if not present
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: APECHAIN_CONFIG.chainId }],
+        });
+      } catch (switchError: any) {
+        // Chain not added, try to add it
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [APECHAIN_CONFIG],
+          });
+        } else {
+          throw switchError;
+        }
+      }
+
+      setWalletConnected(true);
+      return accounts[0];
+    } catch (error: any) {
+      setPaymentStatus('idle');
+      throw error;
+    }
+  }, []);
+
+  // Send ApeCoin payment
+  const sendPayment = useCallback(async (userAddress: string) => {
+    setPaymentStatus('paying');
+
+    const config = getConfig();
+    const provider = new BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+
+    // Create contract instance
+    const apeContract = new Contract(config.apeContractAddress, ERC20_ABI, signer);
+
+    // Get decimals and calculate amount
+    const decimals = await apeContract.decimals();
+    const amount = parseUnits(config.paymentAmount, decimals);
+
+    // Send transaction
+    const tx = await apeContract.transfer(config.receivingWallet, amount);
+
+    setTxHash(tx.hash);
+    setPaymentStatus('confirming');
+
+    // Wait for transaction confirmation
+    await tx.wait(1);
+
+    return tx.hash;
+  }, []);
+
   const handleGenerate = useCallback(async () => {
     if (!subjectImage || !styleImage) return;
 
@@ -55,12 +172,29 @@ export default function MutantMaker() {
     setLoadingMsgIndex(0);
 
     try {
+      // Phase 1: Connect Wallet
+      let userAddress = walletAddress;
+      if (!walletConnected) {
+        userAddress = await connectWallet();
+      }
+
+      if (!userAddress) {
+        throw new Error("Failed to connect wallet.");
+      }
+
+      // Phase 2: Send Payment
+      const transactionHash = await sendPayment(userAddress);
+
+      // Phase 3: Generate Image with payment proof
+      setPaymentStatus('generating');
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          txHash: transactionHash,
           subjectBase64: subjectImage.base64,
           styleBase64: styleImage.base64,
           userPrompt: prompt,
@@ -74,15 +208,17 @@ export default function MutantMaker() {
       if (data.success) {
         setResultImage(data.image);
         setStatus(GenerationStatus.SUCCESS);
+        setPaymentStatus('idle');
       } else {
         throw new Error(data.error || "Failed to generate image");
       }
     } catch (err: any) {
       console.error(err);
       setStatus(GenerationStatus.ERROR);
+      setPaymentStatus('idle');
       setErrorMsg(err.message || "Something went wrong. Please try again.");
     }
-  }, [subjectImage, styleImage, prompt, showComparison, fusionMode]);
+  }, [subjectImage, styleImage, prompt, showComparison, fusionMode, walletConnected, walletAddress, connectWallet, sendPayment]);
 
   const handleDownload = () => {
     if (resultImage) {
@@ -233,6 +369,35 @@ export default function MutantMaker() {
             </div>
           )}
 
+          {/* Wallet Status */}
+          {walletConnected && walletAddress && (
+            <div class="mt-4 bg-lime-400 border-4 border-black text-black p-3 flex items-center gap-3 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <Wallet class="w-6 h-6 flex-shrink-0" />
+              <p class="font-mono text-xs uppercase truncate">
+                WALLET: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+              </p>
+            </div>
+          )}
+
+          {/* Payment Status Indicator */}
+          {paymentStatus !== 'idle' && (
+            <div class="mt-4 bg-yellow-400 border-4 border-black text-black p-4 flex items-center gap-3 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <Loader2 class="w-6 h-6 animate-spin flex-shrink-0" />
+              <div class="font-mono text-sm uppercase">
+                {paymentStatus === 'connecting' && "CONNECTING WALLET..."}
+                {paymentStatus === 'paying' && "SENDING PAYMENT..."}
+                {paymentStatus === 'confirming' && "CONFIRMING TRANSACTION..."}
+                {paymentStatus === 'generating' && "VERIFYING PAYMENT & GENERATING..."}
+              </div>
+            </div>
+          )}
+
+          {txHash && (
+            <div class="mt-4 bg-blue-500 border-4 border-black text-white p-3 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <p class="font-mono text-xs uppercase">TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}</p>
+            </div>
+          )}
+
           <div class="mt-8">
             <button
               onClick={handleGenerate}
@@ -250,12 +415,16 @@ export default function MutantMaker() {
               {status === GenerationStatus.LOADING ? (
                 <>
                   <Loader2 class="w-8 h-8 animate-spin" strokeWidth={3} />
-                  PROCESSING...
+                  {paymentStatus === 'connecting' && "CONNECTING..."}
+                  {paymentStatus === 'paying' && "PAYING..."}
+                  {paymentStatus === 'confirming' && "CONFIRMING..."}
+                  {paymentStatus === 'generating' && "GENERATING..."}
+                  {paymentStatus === 'idle' && "PROCESSING..."}
                 </>
               ) : (
                 <>
                   <Zap class="w-8 h-8 fill-black" strokeWidth={3} />
-                  MUTATE NOW
+                  {walletConnected ? `PAY ${getConfig().paymentAmount} APE & MUTATE` : "CONNECT & PAY TO MUTATE"}
                 </>
               )}
             </button>
