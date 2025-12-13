@@ -13,7 +13,33 @@ export default function Home({ data }: PageProps<HomeProps>) {
   return (
     <>
       <Head>
-        <title>Mutant Maker - Anime PFP Fusion Lab</title>
+        <title>Mutant Maker - Turn Your Photo into a Mutant Ape | AI PFP Generator</title>
+
+        {/* Standard SEO */}
+        <meta name="description" content="Fuse your photo with Mutant Ape Yacht Club style art using Google Gemini AI. Create unique, melting, psychedelic anime profile pictures instantly on ApeChain." />
+        <meta name="keywords" content="Mutant Ape, MAYC, BAYC, AI Art Generator, PFP Maker, Anime Avatar, ApeChain, NFT Tool" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        {/* Social Media / Open Graph (Facebook, Discord, LinkedIn) */}
+        <meta property="og:title" content="Mutant Maker Lab - Fuse Your DNA" />
+        <meta property="og:description" content="Generate psychedelic Mutant Ape PFPs with AI. Join the lab and mutate your profile picture now." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://mutantmaker.deno.dev/" />
+        <meta property="og:image" content="https://mutantmaker.deno.dev/mutant.avif" />
+
+        {/* Twitter / X Cards */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Mutant Maker - AI PFP Lab" />
+        <meta name="twitter:description" content="Fuse your photos with Mutant Ape style. Powered by Gemini AI on ApeChain." />
+        <meta name="twitter:image" content="https://mutantmaker.deno.dev/mutant.avif" />
+
+        {/* Canonical URL */}
+        <link rel="canonical" href="https://mutantmaker.deno.dev/" />
+
+        {/* Favicon */}
+        <link rel="icon" href="/favicon.ico" />
+
+        {/* Styling */}
         <script src="https://cdn.tailwindcss.com"></script>
         <link
           href="https://fonts.googleapis.com/css2?family=Bangers&family=Space+Grotesk:wght@400;700&display=swap"
