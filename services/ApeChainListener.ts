@@ -36,8 +36,13 @@ const NATIVE_TOKEN_ADDRESSES = [
 const NATIVE_TOKEN_DECIMALS = 18;
 const REQUIRED_CONFIRMATIONS = 3;
 
-// In-memory replay protection (production: use database)
-const processedTransactions = new Set<string>();
+// Persistent replay protection using Deno KV
+const kv = await Deno.openKv();
+
+// Transaction states
+const TX_STATE_PENDING = "pending";
+const TX_STATE_PROCESSED = "processed";
+const PENDING_LOCK_TTL_MS = 120000; // 2 minutes - enough time for blockchain verification
 
 /**
  * Determines if the payment asset is native APE or an ERC-20 token
@@ -188,9 +193,29 @@ export async function waitForApePayment(
         return false;
     }
 
-    // Replay protection - check if already processed
-    if (processedTransactions.has(txHash)) {
+    // Replay protection - check if already processed or pending
+    const txKey = ["transactions", txHash];
+    const existingEntry = await kv.get(txKey);
+
+    if (existingEntry.value === TX_STATE_PROCESSED) {
         console.warn(`Transaction ${txHash} already processed (replay attempt)`);
+        return false;
+    }
+
+    if (existingEntry.value === TX_STATE_PENDING) {
+        console.warn(`Transaction ${txHash} is currently being processed by another request (race condition prevented)`);
+        return false;
+    }
+
+    // Atomic lock: Mark as pending to prevent race conditions
+    // Use atomic check to ensure only one request can set pending state
+    const commitResult = await kv.atomic()
+        .check(existingEntry) // Ensure state hasn't changed since we checked
+        .set(txKey, TX_STATE_PENDING, { expireIn: PENDING_LOCK_TTL_MS })
+        .commit();
+
+    if (!commitResult.ok) {
+        console.warn(`Transaction ${txHash} lock failed - another request is processing it`);
         return false;
     }
 
@@ -264,23 +289,33 @@ export async function waitForApePayment(
 
         // Mark as processed if verified (replay protection)
         if (verified) {
-            processedTransactions.add(txHash);
+            // Permanently store as processed (no expiration - never allow reuse)
+            await kv.set(txKey, TX_STATE_PROCESSED);
             console.log(`✅ Payment verified and recorded: ${expectedAmount} ${isNative ? 'APE' : 'tokens'}`);
+        } else {
+            // Verification failed - remove pending lock so user can retry with a different tx
+            await kv.delete(txKey);
+            console.warn(`❌ Payment verification failed for ${txHash} - lock released`);
         }
 
         return verified;
 
     } catch (error) {
         console.error(`❌ Error during payment verification for ${txHash}:`, error);
+
+        // Clean up pending lock on error so user can retry
+        await kv.delete(txKey);
+
         return false;
     }
 }
 
 /**
- * Clears a transaction from the replay protection set.
+ * Clears a transaction from the replay protection KV store.
  * Use this for testing or in case of false positives.
  */
-export function clearProcessedTransaction(txHash: string): void {
-    processedTransactions.delete(txHash);
-    console.log(`Cleared transaction ${txHash} from processed set`);
+export async function clearProcessedTransaction(txHash: string): Promise<void> {
+    const txKey = ["transactions", txHash];
+    await kv.delete(txKey);
+    console.log(`Cleared transaction ${txHash} from KV store`);
 }
