@@ -65,8 +65,8 @@ const NATIVE_TOKEN_ADDRESSES = [
 function isNativeApe(address: string | undefined): boolean {
     if (!address) return true;
     const normalized = address.toLowerCase().trim();
-    // Also consider the default ERC-20 address as non-native
-    if (normalized === "0x4d224452801aced8b2f0aebe155379bb5d594381") return false;
+    // On ApeChain, APE is the native coin (like ETH on Ethereum)
+    // Check if the address is in the list of native token markers
     return NATIVE_TOKEN_ADDRESSES.some(addr => addr.toLowerCase() === normalized);
 }
 

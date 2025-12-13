@@ -52,8 +52,9 @@ export default function Home({ data }: PageProps<HomeProps>) {
 export const handler = {
   GET(_req: Request, ctx: any) {
     // Load environment variables and pass to the component
+    // Default to "native" since APE is the native coin on ApeChain (like ETH on Ethereum)
     const data: HomeProps = {
-      apeContractAddress: Deno.env.get("APE_COIN_CONTRACT_ADDRESS") || "0x4d224452801aced8b2f0aebe155379bb5d594381",
+      apeContractAddress: Deno.env.get("APE_COIN_CONTRACT_ADDRESS") || "native",
       receivingWallet: Deno.env.get("RECEIVING_WALLET_ADDRESS") || "",
       paymentAmount: Deno.env.get("APE_PAYMENT_AMOUNT") || "0.1",
     };
