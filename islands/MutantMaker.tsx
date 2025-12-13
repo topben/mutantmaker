@@ -148,7 +148,14 @@ export default function MutantMaker() {
     const apeContract = new Contract(config.apeContractAddress, ERC20_ABI, signer);
 
     // Get decimals and calculate amount
-    const decimals = await apeContract.decimals();
+    // APE on ApeChain is the native token with 18 decimals
+    // Fallback to 18 if decimals() call fails
+    let decimals = 18;
+    try {
+      decimals = await apeContract.decimals();
+    } catch (error) {
+      console.warn("Failed to get decimals from contract, using default 18:", error);
+    }
     const amount = parseUnits(config.paymentAmount, decimals);
 
     // Send transaction
