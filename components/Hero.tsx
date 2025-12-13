@@ -25,10 +25,20 @@ export default function Hero() {
         </span>
       </h1>
 
-      <div class="relative inline-block">
+      <div class="relative inline-block mb-8">
         <p class="font-['Space_Grotesk'] text-xl md:text-2xl font-bold text-cyan-300 bg-slate-900/80 px-4 py-2 border-2 border-cyan-500 rounded-lg transform rotate-1">
           Fuse your DNA with Anime Goo.
         </p>
+      </div>
+
+      {/* Brand Mascot Image */}
+      <div class="flex justify-center">
+        <img
+          src="/mutant.avif"
+          alt="Mutant Ape Yacht Club style AI generated mascot - psychedelic anime character"
+          fetchpriority="high"
+          class="w-48 h-48 md:w-64 md:h-64 object-contain drop-shadow-[0_0_20px_rgba(163,230,53,0.5)] hover:scale-105 transition-transform duration-300"
+        />
       </div>
     </div>
   );
