@@ -130,7 +130,8 @@ export default function ImageUploader({
             </div>
           </div>
         ) : (
-          <div
+          <label
+            for={id}
             class="text-center p-6 cursor-pointer w-full h-full flex flex-col items-center justify-center group"
             onClick={handleClick}
           >
@@ -146,7 +147,7 @@ export default function ImageUploader({
             <p class="text-slate-500 text-xs mt-2 font-mono">
               JPG / PNG / WEBP
             </p>
-          </div>
+          </label>
         )}
 
         <input
