@@ -23,7 +23,8 @@
     "$std/": "https://deno.land/std@0.216.0/",
     "@google/genai": "https://esm.sh/@google/genai@1.0.1",
     "lucide-preact": "https://esm.sh/lucide-preact@0.460.0?external=preact",
-    "ethers": "npm:ethers@6.10.0"
+    "ethers": "npm:ethers@6.10.0",
+    "@jsquash/webp": "https://esm.sh/@jsquash/webp@1.2.0"
   },
   "lock": false,
   "nodeModulesDir": "none"
