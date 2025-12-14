@@ -77,7 +77,7 @@ const convertImageToWebP = (
         // 4. Encode to WebP using jSquash (WASM)
         // We use quality 90 to keep AI inputs sharp (default is often 75)
         const webpBuffer = await encode(imageData, {
-          quality: 10, // High quality for AI perception
+          quality: 80, // High quality for AI perception
           method: 4,   // Balance between speed and compression (0=fast, 6=best)
         });
 
