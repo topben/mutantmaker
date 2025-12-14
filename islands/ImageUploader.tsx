@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "preact/hooks";
+import { useState, useCallback } from "preact/hooks";
 import { X, UploadCloud } from "lucide-preact";
 import type { UploadedImage } from "../utils/types.ts";
 
@@ -17,7 +17,6 @@ export default function ImageUploader({
   onImageUpload,
   id,
 }: ImageUploaderProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // Common file processing logic
@@ -32,6 +31,10 @@ export default function ImageUploader({
 
     const reader = new FileReader();
     reader.onloadend = () => {
+      // Revoke old preview URL to prevent memory leak
+      if (image?.previewUrl) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
       onImageUpload({
         file,
         previewUrl: URL.createObjectURL(file),
@@ -39,7 +42,7 @@ export default function ImageUploader({
       });
     };
     reader.readAsDataURL(file);
-  }, [onImageUpload]);
+  }, [onImageUpload, image]);
 
   const handleFileChange = (event: Event) => {
     const target = event.target as HTMLInputElement;
@@ -74,15 +77,21 @@ export default function ImageUploader({
 
   const handleClear = (e: Event) => {
     e.stopPropagation();
+    // Revoke preview URL to prevent memory leak
+    if (image?.previewUrl) {
+      URL.revokeObjectURL(image.previewUrl);
+    }
     onImageUpload(null);
-    // Also clear the ref if it exists
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    // Also clear the file input
+    const input = document.getElementById(id) as HTMLInputElement;
+    if (input) {
+      input.value = "";
     }
   };
 
   const handleClick = () => {
-    fileInputRef.current?.click();
+    // Use document.getElementById for reliable cross-browser file picker trigger
+    document.getElementById(id)?.click();
   };
 
   return (
@@ -157,7 +166,6 @@ export default function ImageUploader({
 
         <input
           id={id}
-          ref={fileInputRef}
           type="file"
           accept="image/*"
           class="hidden"

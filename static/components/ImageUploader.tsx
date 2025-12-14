@@ -23,6 +23,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       if (file) {
         const reader = new FileReader();
         reader.onloadend = () => {
+          // Revoke old preview URL to prevent memory leak
+          if (image?.previewUrl) {
+            URL.revokeObjectURL(image.previewUrl);
+          }
           onImageUpload({
             file,
             previewUrl: URL.createObjectURL(file),
@@ -32,12 +36,16 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         reader.readAsDataURL(file);
       }
     },
-    [onImageUpload]
+    [onImageUpload, image]
   );
 
   const handleClear = useCallback(() => {
+    // Revoke preview URL to prevent memory leak
+    if (image?.previewUrl) {
+      URL.revokeObjectURL(image.previewUrl);
+    }
     onImageUpload(null);
-  }, [onImageUpload]);
+  }, [onImageUpload, image]);
 
   return (
     <div className="flex flex-col gap-2 w-full">
