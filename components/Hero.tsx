@@ -37,15 +37,6 @@ export default function Hero() {
         </p>
       </div>
 
-      {/* Brand Mascot Image */}
-      <div class="flex justify-center">
-        <img
-          src="/mutant.avif"
-          alt="Mutant Ape Yacht Club style AI generated mascot - psychedelic anime character"
-          fetchpriority="high"
-          class="w-48 h-48 md:w-64 md:h-64 object-contain drop-shadow-[0_0_20px_rgba(163,230,53,0.5)] hover:scale-105 transition-transform duration-300"
-        />
-      </div>
     </div>
   );
 }
