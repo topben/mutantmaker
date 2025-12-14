@@ -270,27 +270,32 @@ export const generateAnimePFP = async (
     const response = await withRetry(
       async () => {
         return await ai.models.generateContent({
-          // The current model used was "gemini-2.5-flash-image".
-          // SUGGESTED CHEAPER MODEL: Switching to a dedicated Imagen model
-          // is often more cost-effective for image output tasks.
-          // Note: Availability and exact pricing of specific models should be checked
-          // on the Google AI platform pricing page for optimal results.
-          model: "imagen-3.0-generate-002",
+          // Cost-efficient image generation model
+          // Fixed cost: 1,290 output tokens per image (~$0.039/image)
+          // Resolution: 1024px on longer side, controlled by aspect ratio
+          model: "gemini-2.5-flash-image",
           contents: [
               { text: basePrompt },
               {
                 inlineData: {
-                  mimeType: "image/jpeg",
+                  mimeType: "image/webp",
                   data: cleanSubject,
                 },
               },
               {
                 inlineData: {
-                  mimeType: "image/jpeg",
+                  mimeType: "image/webp",
                   data: cleanStyle,
                 },
               },
             ],
+          // Set aspect ratio to 1:1 for square PFP output (1024x1024)
+          config: {
+            responseModalities: ["image", "text"],
+            imageConfig: {
+              aspectRatio: "1:1",
+            },
+          },
         });
       },
       "generateContent"
