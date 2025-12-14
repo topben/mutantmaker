@@ -31,29 +31,52 @@ const convertImageToWebP = (
     img.crossOrigin = "Anonymous";
     img.onload = async () => {
       try {
+        // 1. Calculate new dimensions (Max 1024px)
+        // This drastically reduces RAM usage for large phone photos
+        const MAX_SIZE = 1024;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+
         const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           reject(new Error("Could not get canvas context"));
           return;
         }
 
-        // Draw image to get raw pixel data
-        ctx.fillStyle = "#FFFFFF"; // Handle transparency
+        // 2. Draw resized image
+        ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
+        // This step performs the downscaling
+        ctx.drawImage(img, 0, 0, width, height);
 
-        // Get raw ImageData for jSquash
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        // 3. Get ImageData from the SMALLER canvas
+        const imageData = ctx.getImageData(0, 0, width, height);
 
-        // Encode to WebP using jSquash (WASM)
+        // 4. Encode to WebP using jSquash (WASM)
         // We use quality 90 to keep AI inputs sharp (default is often 75)
         const webpBuffer = await encode(imageData, {
           quality: 90, // High quality for AI perception
           method: 4,   // Balance between speed and compression (0=fast, 6=best)
         });
+
+        // 5. Cleanup hints (help the Garbage Collector)
+        // @ts-ignore - Clear reference to allow memory release
+        imageData.data = null;
 
         // Convert WASM buffer output to base64 for API transport
         const base64Data = arrayBufferToBase64(webpBuffer);
