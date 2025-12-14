@@ -270,9 +270,13 @@ export const generateAnimePFP = async (
     const response = await withRetry(
       async () => {
         return await ai.models.generateContent({
-          model: "gemini-2.5-flash-image",
-          contents: {
-            parts: [
+          // The current model used was "gemini-2.5-flash-image".
+          // SUGGESTED CHEAPER MODEL: Switching to a dedicated Imagen model
+          // is often more cost-effective for image output tasks.
+          // Note: Availability and exact pricing of specific models should be checked
+          // on the Google AI platform pricing page for optimal results.
+          model: "imagen-3.0-generate-002",
+          contents: [
               { text: basePrompt },
               {
                 inlineData: {
@@ -287,7 +291,6 @@ export const generateAnimePFP = async (
                 },
               },
             ],
-          },
         });
       },
       "generateContent"
