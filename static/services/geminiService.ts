@@ -7,11 +7,32 @@ import { encode } from "@jsquash/webp"; // Import jSquash
 export type FusionMode = "style" | "balanced" | "cosplay";
 
 /**
- * Converts any image base64 string to an optimized WebP Blob
- * Uses jSquash (WASM) for superior compression without quality loss.
- * Returns a Blob for efficient FormData transport (no base64 overhead).
+ * Converts ArrayBuffer to Base64 string using chunked processing
+ * This avoids creating millions of intermediate strings and reduces GC pressure
  */
-const convertImageToWebP = (base64Str: string): Promise<Blob> => {
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  const CHUNK_SIZE = 8192; // Process 8KB at a time
+  const chunks: string[] = [];
+
+  // Process in chunks to avoid string concatenation overhead
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+    chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
+  }
+
+  // Join chunks once instead of concatenating in loop
+  const binary = chunks.join('');
+  return btoa(binary);
+};
+
+/**
+ * Converts any image base64 string to a highly optimized WebP base64 string
+ * Uses jSquash (WASM) for superior compression without quality loss.
+ */
+const convertImageToWebP = (
+  base64Str: string
+): Promise<{ mimeType: string; data: string }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "Anonymous";
@@ -60,8 +81,8 @@ const convertImageToWebP = (base64Str: string): Promise<Blob> => {
           method: 4,   // Balance between speed and compression (0=fast, 6=best)
         });
 
-        // 5. Create Blob directly from the buffer (no base64 conversion needed)
-        const blob = new Blob([webpBuffer], { type: "image/webp" });
+        // 5. Convert WASM buffer output to base64 for API transport
+        const base64Data = arrayBufferToBase64(webpBuffer);
 
         // 6. Explicit cleanup to help GC reclaim memory faster
         canvas.width = 0;
@@ -69,9 +90,12 @@ const convertImageToWebP = (base64Str: string): Promise<Blob> => {
         // Clear the img element
         img.onload = null;
         img.onerror = null;
-        img.src = "";
+        img.src = '';
 
-        resolve(blob);
+        resolve({
+          mimeType: "image/webp",
+          data: base64Data,
+        });
       } catch (err) {
         reject(err);
       }
@@ -84,38 +108,37 @@ const convertImageToWebP = (base64Str: string): Promise<Blob> => {
 
 /**
  * Generates an anime PFP by calling the server-side API
- * Uses FormData to send binary files efficiently (no base64 JSON overhead)
  */
 export const generateAnimePFP = async (
   subjectBase64: string,
   styleBase64: string,
   userPrompt: string = "",
   returnComparison: boolean = false,
-  fusionMode: FusionMode = "balanced",
-  txHash: string = ""
+  fusionMode: FusionMode = "balanced"
 ): Promise<string> => {
   try {
-    // Convert images to optimized WebP Blobs SEQUENTIALLY
+    // Convert images to optimized WebP format SEQUENTIALLY
     // This reduces peak memory usage by ~50% compared to Promise.all
     // Processing one image at a time allows GC to clean up between conversions
-    const subjectBlob = await convertImageToWebP(subjectBase64);
-    const styleBlob = await convertImageToWebP(styleBase64);
+    const subject = await convertImageToWebP(subjectBase64);
+    const style = await convertImageToWebP(styleBase64);
 
-    // Use FormData for efficient binary transport (streams data, no JSON parsing overhead)
-    const formData = new FormData();
-    formData.append("txHash", txHash);
-    formData.append("userPrompt", userPrompt);
-    formData.append("returnComparison", String(returnComparison));
-    formData.append("fusionMode", fusionMode);
-    // Append images as binary files
-    formData.append("subject", subjectBlob, "subject.webp");
-    formData.append("style", styleBlob, "style.webp");
+    // Prepare request data
+    const requestData = {
+      subjectBase64: `data:image/webp;base64,${subject.data}`,
+      styleBase64: `data:image/webp;base64,${style.data}`,
+      userPrompt,
+      returnComparison,
+      fusionMode,
+    };
 
     // Call server API endpoint
-    // No Content-Type header - fetch adds multipart/form-data automatically
     const response = await fetch("/api/generate", {
       method: "POST",
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestData),
     });
 
     if (!response.ok) {

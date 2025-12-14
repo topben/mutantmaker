@@ -1,24 +1,10 @@
 import { HandlerContext } from "$fresh/server.ts";
 import { generateAnimePFP } from "../../services/geminiService.ts";
-import type { FusionMode } from "../../services/geminiService.ts";
 import { waitForApePayment } from "../../services/ApeChainListener.ts";
 import { applyRateLimit, getClientIP, checkRateLimit } from "../../services/rateLimiter.ts";
 
 // Environment variables are loaded in main.ts/dev.ts
 const APE_PAYMENT_AMOUNT = Deno.env.get("APE_PAYMENT_AMOUNT") || "0.1";
-
-/**
- * Convert ArrayBuffer to Base64 string
- * Memory-efficient for server-side use
- */
-const toBase64 = (buffer: ArrayBuffer): string => {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-};
 
 export const handler = async (
   _req: Request,
@@ -45,28 +31,8 @@ export const handler = async (
   const rateLimitInfo = await checkRateLimit(clientIP);
 
   try {
-    // Parse FormData - handles binary streams more efficiently than JSON
-    const form = await _req.formData();
-
-    // Extract text fields
-    const txHash = form.get("txHash") as string;
-    const userPrompt = form.get("userPrompt") as string || "";
-    const returnComparison = form.get("returnComparison") === "true";
-    const fusionMode = (form.get("fusionMode") as FusionMode) || "balanced";
-
-    // Extract image files
-    const subjectFile = form.get("subject") as File;
-    const styleFile = form.get("style") as File;
-
-    if (!subjectFile || !styleFile) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Both subject and style images are required." }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
+    const body = await _req.json();
+    const { txHash, ...generateRequest } = body;
 
     // 1. PAYMENT VALIDATION CHECK
     if (!txHash) {
@@ -94,22 +60,8 @@ export const handler = async (
       );
     }
 
-    // 2. Convert files to Base64 ONLY when needed for Gemini API
-    // Reading ArrayBuffer is more memory-efficient than parsing huge JSON strings
-    const subjectBuffer = await subjectFile.arrayBuffer();
-    const styleBuffer = await styleFile.arrayBuffer();
-
-    const subjectBase64 = `data:image/webp;base64,${toBase64(subjectBuffer)}`;
-    const styleBase64 = `data:image/webp;base64,${toBase64(styleBuffer)}`;
-
-    // 3. IMAGE GENERATION (Only proceeds if payment is confirmed)
-    const resultImage = await generateAnimePFP({
-      subjectBase64,
-      styleBase64,
-      userPrompt,
-      returnComparison,
-      fusionMode,
-    });
+    // 2. IMAGE GENERATION (Only proceeds if payment is confirmed)
+    const resultImage = await generateAnimePFP(generateRequest);
 
     return new Response(
       JSON.stringify({ success: true, image: resultImage }),
