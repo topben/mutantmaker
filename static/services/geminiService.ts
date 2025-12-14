@@ -2,20 +2,34 @@
  * Client-side Gemini Service
  * Calls the server-side API endpoint for image generation
  */
+import { encode } from "@jsquash/webp"; // Import jSquash
 
 export type FusionMode = "style" | "balanced" | "cosplay";
 
 /**
- * Converts any image base64 string to a standard JPEG base64 string
- * to ensure compatibility with the API.
+ * Converts ArrayBuffer to Base64 string
  */
-const convertImageToJpeg = (
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+};
+
+/**
+ * Converts any image base64 string to a highly optimized WebP base64 string
+ * Uses jSquash (WASM) for superior compression without quality loss.
+ */
+const convertImageToWebP = (
   base64Str: string
 ): Promise<{ mimeType: string; data: string }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "Anonymous";
-    img.onload = () => {
+    img.onload = async () => {
       try {
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
@@ -25,17 +39,28 @@ const convertImageToJpeg = (
           reject(new Error("Could not get canvas context"));
           return;
         }
-        // Fill white background for transparency handling
-        ctx.fillStyle = "#FFFFFF";
+
+        // Draw image to get raw pixel data
+        ctx.fillStyle = "#FFFFFF"; // Handle transparency
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
 
-        // Force JPEG format at high quality
-        const jpegBase64 = canvas.toDataURL("image/jpeg", 0.95);
-        const cleanData = jpegBase64.replace(/^data:image\/jpeg;base64,/, "");
+        // Get raw ImageData for jSquash
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Encode to WebP using jSquash (WASM)
+        // We use quality 90 to keep AI inputs sharp (default is often 75)
+        const webpBuffer = await encode(imageData, {
+          quality: 90, // High quality for AI perception
+          method: 4,   // Balance between speed and compression (0=fast, 6=best)
+        });
+
+        // Convert WASM buffer output to base64 for API transport
+        const base64Data = arrayBufferToBase64(webpBuffer);
+
         resolve({
-          mimeType: "image/jpeg",
-          data: cleanData,
+          mimeType: "image/webp",
+          data: base64Data,
         });
       } catch (err) {
         reject(err);
@@ -58,16 +83,16 @@ export const generateAnimePFP = async (
   fusionMode: FusionMode = "balanced"
 ): Promise<string> => {
   try {
-    // Convert images to JPEG format
+    // Convert images to optimized WebP format
     const [subject, style] = await Promise.all([
-      convertImageToJpeg(subjectBase64),
-      convertImageToJpeg(styleBase64),
+      convertImageToWebP(subjectBase64),
+      convertImageToWebP(styleBase64),
     ]);
 
     // Prepare request data
     const requestData = {
-      subjectBase64: `data:image/jpeg;base64,${subject.data}`,
-      styleBase64: `data:image/jpeg;base64,${style.data}`,
+      subjectBase64: `data:image/webp;base64,${subject.data}`,
+      styleBase64: `data:image/webp;base64,${style.data}`,
       userPrompt,
       returnComparison,
       fusionMode,
