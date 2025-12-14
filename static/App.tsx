@@ -78,7 +78,7 @@ const App: React.FC = () => {
     if (resultImage) {
       const link = document.createElement("a");
       link.href = resultImage;
-      link.download = `mutant-pfp-${Date.now()}.png`;
+      link.download = `mutant-pfp-${Date.now()}.webp`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
