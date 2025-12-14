@@ -7,15 +7,22 @@ import { encode } from "@jsquash/webp"; // Import jSquash
 export type FusionMode = "style" | "balanced" | "cosplay";
 
 /**
- * Converts ArrayBuffer to Base64 string
+ * Converts ArrayBuffer to Base64 string using chunked processing
+ * This avoids creating millions of intermediate strings and reduces GC pressure
  */
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  let binary = "";
   const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const CHUNK_SIZE = 8192; // Process 8KB at a time
+  const chunks: string[] = [];
+
+  // Process in chunks to avoid string concatenation overhead
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+    chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
   }
+
+  // Join chunks once instead of concatenating in loop
+  const binary = chunks.join('');
   return btoa(binary);
 };
 
@@ -74,12 +81,16 @@ const convertImageToWebP = (
           method: 4,   // Balance between speed and compression (0=fast, 6=best)
         });
 
-        // 5. Cleanup hints (help the Garbage Collector)
-        // @ts-ignore - Clear reference to allow memory release
-        imageData.data = null;
-
-        // Convert WASM buffer output to base64 for API transport
+        // 5. Convert WASM buffer output to base64 for API transport
         const base64Data = arrayBufferToBase64(webpBuffer);
+
+        // 6. Explicit cleanup to help GC reclaim memory faster
+        canvas.width = 0;
+        canvas.height = 0;
+        // Clear the img element
+        img.onload = null;
+        img.onerror = null;
+        img.src = '';
 
         resolve({
           mimeType: "image/webp",
@@ -106,11 +117,11 @@ export const generateAnimePFP = async (
   fusionMode: FusionMode = "balanced"
 ): Promise<string> => {
   try {
-    // Convert images to optimized WebP format
-    const [subject, style] = await Promise.all([
-      convertImageToWebP(subjectBase64),
-      convertImageToWebP(styleBase64),
-    ]);
+    // Convert images to optimized WebP format SEQUENTIALLY
+    // This reduces peak memory usage by ~50% compared to Promise.all
+    // Processing one image at a time allows GC to clean up between conversions
+    const subject = await convertImageToWebP(subjectBase64);
+    const style = await convertImageToWebP(styleBase64);
 
     // Prepare request data
     const requestData = {
