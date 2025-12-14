@@ -22,7 +22,12 @@ const ERC20_ABI = [
 // ApeChain Network - Disable ENS to avoid "network does not support ENS" errors
 const APECHAIN_NETWORK = new Network("apechain", 33139, { ensAddress: null });
 
-const provider = new JsonRpcProvider(APE_CHAIN_RPC_URL, APECHAIN_NETWORK);
+// Configure provider with static network to avoid unnecessary network detection calls
+// This reduces RPC overhead since we know the network won't change
+const provider = new JsonRpcProvider(APE_CHAIN_RPC_URL, APECHAIN_NETWORK, {
+    staticNetwork: APECHAIN_NETWORK,
+    batchMaxCount: 1,  // Disable batching for payment verification (latency-sensitive)
+});
 
 // Constants for native token detection
 const NATIVE_TOKEN_ADDRESSES = [
@@ -318,4 +323,35 @@ export async function clearProcessedTransaction(txHash: string): Promise<void> {
     const txKey = ["transactions", txHash];
     await kv.delete(txKey);
     console.log(`Cleared transaction ${txHash} from KV store`);
+}
+
+/**
+ * Gracefully shuts down the ApeChain listener.
+ * Call this during application shutdown to release resources properly.
+ *
+ * This ensures:
+ * - Provider HTTP connections are closed
+ * - KV store is properly closed
+ * - No resource leaks on server restart
+ */
+export async function shutdown(): Promise<void> {
+    console.log("🔌 Shutting down ApeChain listener...");
+
+    try {
+        // Destroy the provider to close HTTP connections
+        await provider.destroy();
+        console.log("✅ Provider destroyed");
+    } catch (error) {
+        console.warn("Warning: Error destroying provider:", error);
+    }
+
+    try {
+        // Close the KV store connection
+        kv.close();
+        console.log("✅ KV store closed");
+    } catch (error) {
+        console.warn("Warning: Error closing KV store:", error);
+    }
+
+    console.log("✅ ApeChain listener shutdown complete");
 }
