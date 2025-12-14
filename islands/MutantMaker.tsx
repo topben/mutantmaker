@@ -3,7 +3,6 @@ import type { UploadedImage, FusionMode } from "../utils/types.ts";
 import { GenerationStatus } from "../utils/types.ts";
 import ImageUploader from "./ImageUploader.tsx";
 import {
-  Wand2,
   Download,
   RefreshCw,
   AlertCircle,
@@ -19,6 +18,7 @@ import {
   Info,
 } from "lucide-preact";
 import { BrowserProvider, Contract, parseUnits, Network } from "ethers";
+import { encode as encodeWebP } from "@jsquash/webp";
 
 const LOADING_MESSAGES = [
   "BREWING POTIONS...",
@@ -71,6 +71,90 @@ function isNativeApe(address: string | undefined): boolean {
     // Check if the address is in the list of native token markers
     return NATIVE_TOKEN_ADDRESSES.some(addr => addr.toLowerCase() === normalized);
 }
+
+/**
+ * Convert ArrayBuffer to Base64 string using chunked approach
+ * to avoid stack overflow on large images
+ */
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  const CHUNK_SIZE = 8192;
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+    chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
+  }
+  return btoa(chunks.join(""));
+};
+
+/**
+ * Compress image to optimized WebP format
+ * Resizes to max 1024px and compresses to reduce API input costs
+ * Returns raw base64 string (without data URL prefix)
+ */
+const compressToWebP = async (base64DataUrl: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+
+    img.onload = async () => {
+      try {
+        const MAX_SIZE = 1024;
+        let width = img.width;
+        let height = img.height;
+
+        // Resize to fit within MAX_SIZE while maintaining aspect ratio
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+
+        if (!ctx) {
+          reject(new Error("Failed to create canvas context for image compression"));
+          return;
+        }
+
+        // Fill with white background to handle PNG transparency
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const imageData = ctx.getImageData(0, 0, width, height);
+
+        try {
+          // Try WebP encoding via @jsquash/webp (uses WASM)
+          const webpBuffer = await encodeWebP(imageData, {
+            quality: 80,
+            method: 4,
+          });
+          resolve(arrayBufferToBase64(webpBuffer));
+        } catch (encodeError) {
+          // Fallback to canvas toDataURL if WASM encoding fails
+          console.warn("WebP WASM encoding failed, using canvas fallback:", encodeError);
+          const fallbackDataUrl = canvas.toDataURL("image/webp", 0.8);
+          resolve(fallbackDataUrl.replace(/^data:image\/webp;base64,/, ""));
+        }
+      } catch (e) {
+        reject(new Error(`Image compression failed: ${e instanceof Error ? e.message : "Unknown error"}`));
+      }
+    };
+
+    img.onerror = () => reject(new Error("Failed to load image for compression"));
+    img.src = base64DataUrl;
+  });
+};
 
 export default function MutantMaker({ apeContractAddress, receivingWallet, paymentAmount }: MutantMakerProps) {
   const [subjectImage, setSubjectImage] = useState<UploadedImage | null>(null);
@@ -219,6 +303,12 @@ export default function MutantMaker({ apeContractAddress, receivingWallet, payme
       // Phase 3: Generate Image with payment proof
       setPaymentStatus('generating');
 
+      // Compress images to WebP before sending to reduce API input costs
+      const [subjectWebP, styleWebP] = await Promise.all([
+        compressToWebP(subjectImage.base64),
+        compressToWebP(styleImage.base64),
+      ]);
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
@@ -226,8 +316,8 @@ export default function MutantMaker({ apeContractAddress, receivingWallet, payme
         },
         body: JSON.stringify({
           txHash: transactionHash,
-          subjectBase64: subjectImage.base64,
-          styleBase64: styleImage.base64,
+          subjectBase64: subjectWebP,
+          styleBase64: styleWebP,
           userPrompt: prompt,
           returnComparison: showComparison,
           fusionMode: fusionMode,
