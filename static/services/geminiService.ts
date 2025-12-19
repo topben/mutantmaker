@@ -2,99 +2,40 @@
  * Client-side Gemini Service
  * Calls the server-side API endpoint for image generation
  */
-import { encode } from "@jsquash/webp"; // Import jSquash
 
 export type FusionMode = "style" | "balanced" | "cosplay";
 
 /**
- * Converts ArrayBuffer to Base64 string using chunked processing
- * This avoids creating millions of intermediate strings and reduces GC pressure
+ * Converts any image base64 string to a standard JPEG base64 string
+ * to ensure compatibility with the API.
  */
-const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  const bytes = new Uint8Array(buffer);
-  const CHUNK_SIZE = 8192; // Process 8KB at a time
-  const chunks: string[] = [];
-
-  // Process in chunks to avoid string concatenation overhead
-  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
-    chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
-  }
-
-  // Join chunks once instead of concatenating in loop
-  const binary = chunks.join('');
-  return btoa(binary);
-};
-
-/**
- * Converts any image base64 string to a highly optimized WebP base64 string
- * Uses jSquash (WASM) for superior compression without quality loss.
- */
-const convertImageToWebP = (
+const convertImageToJpeg = (
   base64Str: string
 ): Promise<{ mimeType: string; data: string }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "Anonymous";
-    img.onload = async () => {
+    img.onload = () => {
       try {
-        // 1. Calculate new dimensions (Max 1024px)
-        // This drastically reduces RAM usage for large phone photos
-        const MAX_SIZE = 1024;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height = Math.round((height * MAX_SIZE) / width);
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width = Math.round((width * MAX_SIZE) / height);
-            height = MAX_SIZE;
-          }
-        }
-
         const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = img.width;
+        canvas.height = img.height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           reject(new Error("Could not get canvas context"));
           return;
         }
-
-        // 2. Draw resized image
+        // Fill white background for transparency handling
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        // This step performs the downscaling
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.drawImage(img, 0, 0);
 
-        // 3. Get ImageData from the SMALLER canvas
-        const imageData = ctx.getImageData(0, 0, width, height);
-
-        // 4. Encode to WebP using jSquash (WASM)
-        // We use quality 90 to keep AI inputs sharp (default is often 75)
-        const webpBuffer = await encode(imageData, {
-          quality: 80, // High quality for AI perception
-          method: 4,   // Balance between speed and compression (0=fast, 6=best)
-        });
-
-        // 5. Convert WASM buffer output to base64 for API transport
-        const base64Data = arrayBufferToBase64(webpBuffer);
-
-        // 6. Explicit cleanup to help GC reclaim memory faster
-        canvas.width = 0;
-        canvas.height = 0;
-        // Clear the img element
-        img.onload = null;
-        img.onerror = null;
-        img.src = '';
-
+        // Force JPEG format at high quality
+        const jpegBase64 = canvas.toDataURL("image/jpeg", 0.95);
+        const cleanData = jpegBase64.replace(/^data:image\/jpeg;base64,/, "");
         resolve({
-          mimeType: "image/webp",
-          data: base64Data,
+          mimeType: "image/jpeg",
+          data: cleanData,
         });
       } catch (err) {
         reject(err);
@@ -117,16 +58,16 @@ export const generateAnimePFP = async (
   fusionMode: FusionMode = "balanced"
 ): Promise<string> => {
   try {
-    // Convert images to optimized WebP format SEQUENTIALLY
-    // This reduces peak memory usage by ~50% compared to Promise.all
-    // Processing one image at a time allows GC to clean up between conversions
-    const subject = await convertImageToWebP(subjectBase64);
-    const style = await convertImageToWebP(styleBase64);
+    // Parallel conversion to ensure speed and format validity (JPEG)
+    const [subject, style] = await Promise.all([
+      convertImageToJpeg(subjectBase64),
+      convertImageToJpeg(styleBase64),
+    ]);
 
     // Prepare request data
     const requestData = {
-      subjectBase64: `data:image/webp;base64,${subject.data}`,
-      styleBase64: `data:image/webp;base64,${style.data}`,
+      subjectBase64: `data:${subject.mimeType};base64,${subject.data}`,
+      styleBase64: `data:${style.mimeType};base64,${style.data}`,
       userPrompt,
       returnComparison,
       fusionMode,

@@ -322,7 +322,7 @@ export const generateAnimePFP = async (
     const imagePart = parts.find((part: any) => part.inlineData);
 
     if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
-      return `data:image/webp;base64,${imagePart.inlineData.data}`;
+      return `data:image/png;base64,${imagePart.inlineData.data}`;
     }
 
     const textPart = parts.find((part: any) => part.text);
