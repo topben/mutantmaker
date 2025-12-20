@@ -5,6 +5,8 @@
 
 export type FusionMode = "style" | "balanced" | "cosplay";
 
+const MAX_DIMENSION = 1024; // Safe size for API limits & speed
+
 /**
  * Converts any image base64 string to a standard JPEG base64 string
  * to ensure compatibility with the API.
@@ -17,22 +19,42 @@ const convertImageToJpeg = (
     img.crossOrigin = "Anonymous";
     img.onload = () => {
       try {
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions while maintaining aspect ratio
+        if (width > height) {
+          if (width > MAX_DIMENSION) {
+            height = Math.round((height * MAX_DIMENSION) / width);
+            width = MAX_DIMENSION;
+          }
+        } else {
+          if (height > MAX_DIMENSION) {
+            width = Math.round((width * MAX_DIMENSION) / height);
+            height = MAX_DIMENSION;
+          }
+        }
+
         const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           reject(new Error("Could not get canvas context"));
           return;
         }
-        // Fill white background for transparency handling
+
+        // Fill white background (handles transparent PNGs)
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
 
-        // Force JPEG format at high quality
-        const jpegBase64 = canvas.toDataURL("image/jpeg", 0.95);
+        // Draw image with new dimensions
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Lower quality slightly to 0.85 (indistinguishable for AI, much smaller file)
+        const jpegBase64 = canvas.toDataURL("image/jpeg", 0.85);
         const cleanData = jpegBase64.replace(/^data:image\/jpeg;base64,/, "");
+
         resolve({
           mimeType: "image/jpeg",
           data: cleanData,
